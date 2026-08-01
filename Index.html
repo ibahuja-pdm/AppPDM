@@ -1,0 +1,1319 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>PDM · Mantenimiento</title>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<style>
+  :root{
+    --bg:#000000;
+    --card:#1C1C1E;
+    --card-2:#242426;
+    --text:#F5F5F7;
+    --text-dim:#9A9AA1;
+    --text-faint:#6E6E73;
+    --chevron:#5A5A5F;
+    --pill:#2C2C2E;
+    --divider:#2C2C2E;
+    --on-accent:#000000;
+    --sheet-bg:#151517;
+    --handle:#3A3A3C;
+    --navbar-bg:rgba(20,20,22,0.94);
+  }
+  html[data-theme="light"]{
+    --bg:#F2F2F7;
+    --card:#FFFFFF;
+    --card-2:#E9E9EE;
+    --text:#1C1C1E;
+    --text-dim:#6E6E73;
+    --text-faint:#8E8E93;
+    --chevron:#B0B0B5;
+    --pill:#E5E5EA;
+    --divider:#D8D8DC;
+    --on-accent:#FFFFFF;
+    --sheet-bg:#FFFFFF;
+    --handle:#D0D0D5;
+    --navbar-bg:rgba(255,255,255,0.94);
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0; padding:0; height:100%; background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',sans-serif; overscroll-behavior:none; overflow:hidden;}
+  #app{max-width:480px; margin:0 auto; height:100vh; height:100dvh; display:flex; flex-direction:column; position:relative; overflow:hidden;}
+
+  main{flex:1; min-height:0; padding:0 20px 110px; overflow-y:auto; -webkit-overflow-scrolling:touch;}
+  .screen{display:none;}
+  .screen.active{display:block; animation:fadeIn .2s ease;}
+  @keyframes fadeIn{from{opacity:0;} to{opacity:1;}}
+
+  .topbar{padding:20px 4px 6px; text-align:center; flex-shrink:0;}
+  .topbar h1{font-size:28px; font-weight:700; margin:0; letter-spacing:-0.01em;}
+
+  .row-head{display:flex; align-items:center; justify-content:space-between; padding:16px 4px 14px;}
+  .sticky-head{position:sticky; top:0; background:var(--bg); z-index:5;}
+  .row-head .label{font-size:22px; font-weight:700;}
+  .row-head .label.sm{font-size:17px;}
+  .pill-btn{background:var(--pill); color:var(--text); border:none; border-radius:20px; padding:10px 16px;
+    font-size:14.5px; font-weight:600; cursor:pointer;}
+
+  .chip-row{display:flex; gap:8px; overflow-x:auto; padding:0 2px 16px; scrollbar-width:none;}
+  .chip-row::-webkit-scrollbar{display:none;}
+  .chip{flex-shrink:0; padding:8px 15px; border-radius:18px; background:var(--card); color:var(--text-dim);
+    font-size:13.5px; font-weight:600; cursor:pointer; white-space:nowrap;}
+  .chip.active{background:var(--text); color:var(--on-accent);}
+
+  .searchbar{display:flex; align-items:center; gap:9px; background:var(--card); border-radius:12px;
+    padding:11px 14px; margin-bottom:16px;}
+  .searchbar input{flex:1; background:none; border:none; outline:none; color:var(--text); font-size:15px; font-family:inherit;}
+  .searchbar input::placeholder{color:var(--text-faint);}
+
+  .card{display:flex; align-items:center; gap:16px; background:var(--card); border-radius:20px;
+    padding:18px 16px; margin-bottom:14px; cursor:pointer;}
+  .card:active{background:var(--card-2);}
+  .card .icon{width:30px; height:30px; flex-shrink:0; display:flex; align-items:center; justify-content:center; color:var(--text);}
+  .card .icon svg{width:28px; height:28px;}
+  .card .body{flex:1; min-width:0;}
+  .card .title{font-size:18px; font-weight:700; margin-bottom:3px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+  .card .desc{font-size:14.5px; color:var(--text-dim); line-height:1.35;}
+  .badge{display:inline-block; font-size:10.5px; font-weight:700; letter-spacing:0.04em; padding:2.5px 8px;
+    border-radius:8px; flex-shrink:0; background:var(--pill); color:var(--text);}
+  .badge.priority-alta{background:#3A2020; color:#FF8A80;}
+  .badge.priority-media{background:#3A3420; color:#FFD180;}
+  .badge.status-abierta{background:#2C2C2E; color:#F5F5F7;}
+  .badge.status-proceso{background:#20303A; color:#8ECBFF;}
+  .badge.status-cerrada{background:#1E2E22; color:#8FE3A0;}
+  .chevron{flex-shrink:0; color:var(--chevron);}
+
+  .empty{text-align:center; padding:50px 20px; color:var(--text-faint);}
+  .empty .t{font-size:19px; font-weight:700; color:var(--text-dim); margin-bottom:6px;}
+
+  .kpi-row{display:flex; gap:10px; margin-bottom:8px;}
+  .kpi{flex:1; background:var(--card); border-radius:18px; padding:14px 6px; text-align:center;}
+  .kpi .val{font-size:24px; font-weight:700;}
+  .kpi .lbl{font-size:10.5px; color:var(--text-dim); margin-top:4px; font-weight:600;}
+
+  nav.bottomnav{position:fixed; bottom:0; left:0; right:0; max-width:480px; margin:0 auto;
+    background:var(--navbar-bg); backdrop-filter:blur(16px); border-top:1px solid var(--divider);
+    display:flex; align-items:center; justify-content:space-around;
+    padding:12px 4px calc(10px + env(safe-area-inset-bottom));}
+  .navbtn{flex:1; background:none; border:none; display:flex; flex-direction:column; align-items:center; gap:5px;
+    color:var(--text-faint); font-size:11px; font-weight:600; cursor:pointer; padding:6px 4px;}
+  .navbtn.active{color:var(--text);}
+  .navbtn svg{width:26px; height:26px;}
+
+  .overlay{position:fixed; inset:0; background:rgba(0,0,0,0.6); display:none; align-items:flex-end; z-index:50;
+    max-width:480px; margin:0 auto;}
+  .overlay.open{display:flex;}
+  .sheet{background:var(--sheet-bg); width:100%; max-height:90vh; overflow-y:auto; border-radius:24px 24px 0 0;
+    padding:8px 20px 28px; animation:slideUp .22s ease;}
+  @keyframes slideUp{from{transform:translateY(30px); opacity:0;} to{transform:translateY(0); opacity:1;}}
+  .sheet-handle{width:36px; height:4px; background:var(--handle); border-radius:2px; margin:8px auto 18px;}
+  .sheet-title{font-size:21px; font-weight:700; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;}
+  .sheet-title .close{color:var(--text-faint); font-size:22px; cursor:pointer; line-height:1;}
+  .sheet-sub{color:var(--text-dim); font-size:13.5px; margin:-10px 0 18px;}
+
+  label.field{display:block; margin-bottom:14px;}
+  label.field span{display:block; font-size:12px; color:var(--text-dim); font-weight:600; margin-bottom:6px;}
+  .field input, .field select, .field textarea{width:100%; background:var(--card-2); border:none; border-radius:12px;
+    padding:12px 13px; color:var(--text); font-size:15px; font-family:inherit; outline:none; resize:vertical;}
+  .field-row{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+
+  .img-picker{position:relative; width:84px; height:84px;}
+  .img-picker img{width:84px; height:84px; object-fit:cover; border-radius:14px;}
+  .img-placeholder{width:84px; height:84px; border-radius:14px; background:var(--card-2); color:var(--text-faint);
+    display:flex; align-items:center; justify-content:center; border:1.5px dashed var(--divider);}
+  .img-picker input[type=file]{position:absolute; inset:0; opacity:0; cursor:pointer;}
+  .img-remove{position:absolute; top:-6px; right:-6px; width:22px; height:22px; border-radius:50%; border:none;
+    background:var(--card-2); color:var(--text); font-size:12px; cursor:pointer; z-index:2;}
+
+  .btn{width:100%; padding:15px; border-radius:14px; border:none; font-size:16px; font-weight:700; cursor:pointer;}
+  .btn-primary{background:var(--text); color:var(--on-accent);}
+  .btn-ghost{background:var(--card-2); color:var(--text); margin-top:10px;}
+
+  .seg{display:flex; gap:8px; margin-bottom:16px;}
+  .seg button{flex:1; padding:11px; border-radius:12px; border:none; background:var(--card-2); color:var(--text-dim);
+    font-weight:700; font-size:14px; cursor:pointer;}
+  .seg button.on{background:var(--text); color:var(--on-accent);}
+
+  .cl-item{display:flex; align-items:flex-start; gap:12px; padding:14px 0; border-bottom:1px solid var(--divider);}
+  .cl-item:last-child{border-bottom:none;}
+  .cl-item .cl-label{flex:1; font-size:15px; padding-top:2px;}
+  .cl-btns{display:flex; gap:6px; flex-shrink:0;}
+  .cl-btn{width:36px; height:36px; border-radius:10px; border:none; background:var(--card-2); color:var(--text-faint);
+    font-size:15px; font-weight:700; cursor:pointer;}
+  .cl-btn.sel-ok.on{background:#1E2E22; color:#8FE3A0;}
+  .cl-btn.sel-fail.on{background:#3A2020; color:#FF8A80;}
+  .cl-btn.sel-na.on{background:#2C2C2E; color:#F5F5F7;}
+  .cl-value{display:flex; align-items:center; gap:6px; flex-shrink:0;}
+  .cl-value-input{width:72px; background:var(--card-2); border:none; border-radius:10px; padding:9px 10px;
+    color:var(--text); font-size:15px; font-family:inherit; outline:none; text-align:right;}
+  .cl-unit{font-size:13px; color:var(--text-dim); font-weight:600; min-width:26px;}
+
+  .detail-qty{text-align:center; margin:4px 0 20px;}
+  .detail-qty .num{font-size:24px; font-weight:700; line-height:1;}
+  .detail-qty .unit{font-size:14px; color:var(--text-dim); margin-top:4px;}
+
+  .toast{position:fixed; bottom:100px; left:50%; transform:translateX(-50%); background:var(--card-2);
+    color:var(--text); padding:11px 18px; border-radius:24px; font-size:13.5px; font-weight:600; z-index:60;
+    opacity:0; pointer-events:none; transition:opacity .25s, transform .25s; max-width:440px;}
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(-6px);}
+
+  /* ===== LOGIN ===== */
+  #login-screen{position:fixed; inset:0; background:var(--bg); z-index:200; display:flex; flex-direction:column;
+    justify-content:center; padding:28px; box-sizing:border-box;}
+  #login-screen.hidden{display:none;}
+  .login-logo{width:64px; height:64px; border-radius:18px; background:var(--card-2); display:flex;
+    align-items:center; justify-content:center; margin:0 auto 18px;}
+  .login-title{font-size:22px; font-weight:800; text-align:center; margin-bottom:4px;}
+  .login-sub{font-size:14px; color:var(--text-dim); text-align:center; margin-bottom:28px;}
+  .login-error{font-size:13.5px; color:#FF8A80; text-align:center; min-height:18px; margin:-6px 0 10px;}
+
+  /* ===== RESTRICCIÓN POR ROL ===== */
+  body.role-user .admin-only{display:none !important;}
+  #app{display:none;}
+  body.logged-in #app{display:flex;}
+
+  .session-card{display:flex; align-items:center; gap:12px; padding:14px 16px; border-radius:16px;
+    background:var(--card); margin:0 4px 20px;}
+  .session-card .who{flex:1;}
+  .session-card .who .name{font-weight:700; font-size:15px;}
+  .session-card .who .role{font-size:12.5px; color:var(--text-dim);}
+  .session-card button{padding:9px 14px; border-radius:10px; border:none; background:var(--card-2);
+    color:var(--text); font-weight:700; font-size:13px; cursor:pointer;}
+</style>
+</head>
+<body>
+
+<!-- PANTALLA DE INICIO DE SESIÓN -->
+<div id="login-screen">
+  <div class="login-logo">
+    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 12c2.7 0 8 1.34 8 4v2H4v-2c0-2.66 5.3-4 8-4z"/><circle cx="12" cy="7" r="4"/></svg>
+  </div>
+  <div class="login-title">Iniciar sesión</div>
+  <div class="login-sub">Ingresa tus credenciales para continuar</div>
+
+  <div class="login-error" id="login-error"></div>
+
+  <label class="field"><span>Usuario</span><input id="login-user" placeholder="Usuario" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('login-pass').focus()"></label>
+  <label class="field"><span>Contraseña</span><input id="login-pass" type="password" placeholder="Contraseña" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()"></label>
+  <button class="btn btn-primary" onclick="doLogin()">Entrar</button>
+</div>
+
+<div id="app">
+  <div class="topbar"><h1 id="screen-title">Inicio</h1></div>
+
+  <main>
+    <!-- INICIO -->
+    <section class="screen active" id="screen-inicio">
+      <div class="kpi-row">
+        <div class="kpi"><div class="val" id="kpi-articulos">0</div><div class="lbl">Artículos</div></div>
+        <div class="kpi"><div class="val" id="kpi-stock-bajo">0</div><div class="lbl">Stock bajo</div></div>
+      </div>
+      <div class="kpi-row">
+        <div class="kpi"><div class="val" id="kpi-ot-abiertas">0</div><div class="lbl">OTs abiertas</div></div>
+        <div class="kpi"><div class="val" id="kpi-ot-vencidas">0</div><div class="lbl">OTs vencidas</div></div>
+      </div>
+
+      <div class="row-head"><span class="label">OTs urgentes</span></div>
+      <div id="urgent-list"></div>
+
+      <div class="row-head"><span class="label">Alertas de stock</span></div>
+      <div id="alert-list"></div>
+    </section>
+
+    <!-- INVENTARIO -->
+    <section class="screen" id="screen-inventario">
+      <div class="sticky-head">
+        <div class="row-head">
+          <span class="label" id="cat-label">Todos</span>
+          <button class="pill-btn admin-only" onclick="openAddItem()">+ Agregar</button>
+        </div>
+        <div class="searchbar">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#9A9AA1" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input id="search-input" placeholder="Buscar artículo o SKU..." oninput="renderInventario()">
+        </div>
+        <div class="chip-row" id="cat-chips"></div>
+      </div>
+      <div id="inventario-list"></div>
+
+      <div class="row-head"><span class="label sm">Movimientos recientes</span></div>
+      <div id="recent-moves"></div>
+    </section>
+
+    <!-- EQUIPOS -->
+    <section class="screen" id="screen-equipos">
+      <div class="sticky-head">
+        <div class="row-head">
+          <span class="label" id="eq-cat-label">Todos</span>
+          <button class="pill-btn admin-only" onclick="openAddEquipo()">+ Equipo</button>
+        </div>
+        <div class="searchbar">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#9A9AA1" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input id="eq-search" placeholder="Buscar por tag o ubicación..." oninput="renderEquipos()">
+        </div>
+        <div class="chip-row" id="eq-chips"></div>
+      </div>
+      <div id="equipos-list"></div>
+    </section>
+
+    <!-- ORDENES DE TRABAJO -->
+    <section class="screen" id="screen-ots">
+      <div class="sticky-head">
+        <div class="row-head">
+          <span class="label sm" id="ot-status-label">Todas</span>
+          <button class="pill-btn user-only" onclick="openAddOT()">+ Nueva OT</button>
+        </div>
+        <div class="chip-row" id="ot-chips"></div>
+      </div>
+      <div id="ots-list"></div>
+    </section>
+
+    <!-- CHECKLISTS -->
+    <section class="screen" id="screen-checklists">
+      <div class="sticky-head">
+        <div class="row-head">
+          <span class="label sm">Historial de checklists</span>
+          <button class="pill-btn user-only" onclick="openAddChecklist()">+ Nuevo checklist</button>
+        </div>
+      </div>
+      <div id="checklist-log"></div>
+    </section>
+
+    <!-- AJUSTES -->
+    <section class="screen" id="screen-ajustes">
+      <div class="row-head"><span class="label">Sesión</span></div>
+      <div class="session-card">
+        <div class="who">
+          <div class="name" id="session-user">—</div>
+          <div class="role" id="session-role">—</div>
+        </div>
+        <button onclick="doLogout()">Cerrar sesión</button>
+      </div>
+
+      <div class="row-head"><span class="label">Apariencia</span></div>
+      <div class="seg" id="theme-seg" style="margin:0 4px 20px;">
+        <button data-v="dark" onclick="setTheme('dark')">Oscuro</button>
+        <button data-v="light" onclick="setTheme('light')">Claro</button>
+      </div>
+
+      <div class="row-head"><span class="label">General</span></div>
+      <div class="card" onclick="exportData()">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v13M7 11l5 5 5-5"/><path d="M5 21h14"/></svg></div>
+        <div class="body"><div class="title">Exportar datos</div><div class="desc">Descarga un respaldo en JSON de inventario, equipos, OTs y checklists.</div></div>
+        <svg class="chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+      </div>
+      <div class="card admin-only" onclick="confirmReset()">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg></div>
+        <div class="body"><div class="title">Borrar todos los datos</div><div class="desc">Elimina todo lo guardado en la nube (Firestore): inventario, equipos, OTs y checklists. Afecta a todos los usuarios.</div></div>
+        <svg class="chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+      </div>
+    </section>
+  </main>
+
+  <nav class="bottomnav">
+    <button class="navbtn active" data-screen="inicio" onclick="goScreen('inicio')" title="Inicio">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>
+    </button>
+    <button class="navbtn" data-screen="inventario" onclick="goScreen('inventario')" title="Inventario">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg>
+    </button>
+    <button class="navbtn" data-screen="equipos" onclick="goScreen('equipos')" title="Equipos">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="16" height="10" rx="1.5"/><path d="M8 20h8M12 14v6"/></svg>
+    </button>
+    <button class="navbtn" data-screen="ots" onclick="goScreen('ots')" title="Órdenes de trabajo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 3h6l1 3H8l1-3z"/><rect x="5" y="6" width="14" height="15" rx="1.5"/><path d="M9 12h6M9 16h6"/></svg>
+    </button>
+    <button class="navbtn" data-screen="checklists" onclick="goScreen('checklists')" title="Checklist">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M8 8l2 2 3-3M8 14l2 2 3-3"/></svg>
+    </button>
+    <button class="navbtn" data-screen="ajustes" onclick="goScreen('ajustes')" title="Ajustes">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+    </button>
+  </nav>
+
+  <!-- SHEET: Añadir/Editar artículo de inventario -->
+  <div class="overlay" id="overlay-item">
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title"><span id="item-form-title">Nuevo artículo</span><span class="close" onclick="closeOverlay('overlay-item')">✕</span></div>
+      <input type="hidden" id="f-id">
+      <label class="field"><span>Foto (opcional)</span>
+        <div class="img-picker">
+          <img id="f-img-preview" style="display:none;">
+          <div id="f-img-placeholder" class="img-placeholder">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="1.7"/><path d="M21 16l-5.5-5.5L4 21"/></svg>
+          </div>
+          <input type="file" id="f-img-input" accept="image/*" onchange="onItemImageSelected(this)">
+          <button type="button" class="img-remove" id="f-img-remove" style="display:none;" onclick="removeItemImage(event)">✕</button>
+        </div>
+      </label>
+      <label class="field"><span>Nombre</span><input id="f-name" placeholder="Ej. Filtro de aire 20x20"></label>
+      <div class="field-row">
+        <label class="field"><span>Categoría</span>
+          <select id="f-cat">
+            <option>Refacciones</option><option>Filtros</option><option>Lubricantes</option>
+            <option>Consumibles</option><option>Herramientas</option><option>EPP</option><option>Otro</option>
+          </select>
+        </label>
+        <label class="field"><span>Unidad</span><input id="f-unit" placeholder="pza, lt, kg..."></label>
+      </div>
+      <label class="field"><span>SKU / código</span><input id="f-sku" placeholder="Opcional"></label>
+      <div class="field-row">
+        <label class="field"><span>Stock actual</span><input id="f-qty" type="number" min="0"></label>
+        <label class="field"><span>Stock máximo</span><input id="f-max" type="number" min="1"></label>
+      </div>
+      <label class="field"><span>Stock mínimo (alerta)</span><input id="f-min" type="number" min="0"></label>
+      <button class="btn btn-primary" onclick="saveItem()">Guardar artículo</button>
+    </div>
+  </div>
+
+  <!-- SHEET: Detalle de artículo / movimiento de stock -->
+  <div class="overlay" id="overlay-item-detail">
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title"><span id="detail-name">—</span><span class="close" onclick="closeOverlay('overlay-item-detail')">✕</span></div>
+      <img id="detail-img" style="display:none; width:220px; height:220px; object-fit:cover; border-radius:16px; margin:0 auto 14px;">
+      <div class="detail-qty"><div class="num" id="detail-num">Disponible: 0</div></div>
+      <div class="sheet-sub" id="detail-meta" style="text-align:center;"></div>
+
+      <input type="hidden" id="move-type" value="in">
+      <input type="hidden" id="move-item-id">
+      <div class="admin-only">
+        <div class="seg">
+          <button id="btn-sel-in" onclick="selectMoveType('in')">▲ Entrada</button>
+          <button class="on" id="btn-sel-out" onclick="selectMoveType('out')">▼ Salida</button>
+        </div>
+        <label class="field"><span>Cantidad</span><input id="move-qty" type="number" min="1" placeholder="0"></label>
+        <label class="field"><span>Nota (opcional)</span><input id="move-note" placeholder="Ej. Orden de trabajo #245"></label>
+        <button class="btn btn-primary" onclick="registerMove()">Registrar movimiento</button>
+        <button class="btn btn-ghost" onclick="editFromDetail()">Editar artículo</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SHEET: Nuevo/editar equipo -->
+  <div class="overlay" id="overlay-equipo">
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title"><span id="eq-form-title">Nuevo equipo</span><span class="close" onclick="closeOverlay('overlay-equipo')">✕</span></div>
+      <input type="hidden" id="eq-id">
+      <div class="field-row">
+        <label class="field"><span>Tag</span><input id="eq-tag" placeholder="Ej. UMA-05"></label>
+        <label class="field"><span>Tipo</span>
+          <select id="eq-type">
+            <option value="UMA">UMA</option><option value="TUMA">TUMA</option><option value="CEN">CEN</option>
+            <option value="CH">CH (Chiller)</option><option value="HEAT">HEAT</option><option value="BOMB">BOMB</option><option value="Otro">Otro</option>
+          </select>
+        </label>
+      </div>
+      <label class="field"><span>Nombre / descripción</span><input id="eq-name" placeholder="Ej. Unidad manejadora piso 2"></label>
+      <label class="field"><span>Ubicación</span><input id="eq-loc" placeholder="Ej. Azotea - Zona B"></label>
+      <button class="btn btn-primary" onclick="saveEquipo()">Guardar equipo</button>
+    </div>
+  </div>
+
+  <!-- SHEET: Detalle de equipo -->
+  <div class="overlay" id="overlay-eq-detail">
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title"><span id="eqd-tag">—</span><span class="close" onclick="closeOverlay('overlay-eq-detail')">✕</span></div>
+      <div class="sheet-sub" id="eqd-meta"></div>
+      <button class="btn btn-primary user-only" onclick="newOTforEquipo()">+ Nueva OT para este equipo</button>
+      <button class="btn btn-ghost admin-only" onclick="editEquipoFromDetail()">Editar equipo</button>
+      <div class="row-head"><span class="label sm">Historial de OT</span></div>
+      <div id="eqd-ot-history"></div>
+    </div>
+  </div>
+
+  <!-- SHEET: Nueva/editar OT -->
+  <div class="overlay" id="overlay-ot">
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title"><span id="ot-form-title">Nueva orden de trabajo</span><span class="close" onclick="closeOverlay('overlay-ot')">✕</span></div>
+      <input type="hidden" id="ot-id">
+      <label class="field"><span>Tipo de trabajo</span>
+        <select id="ot-worktype"><option>Preventivo</option><option>Correctivo</option><option>Seguridad</option></select>
+      </label>
+      <div class="field-row">
+        <label class="field"><span>Área</span>
+          <select id="ot-area" onchange="onAreaChange('ot')"><option>Proveedor</option><option>Conveyor</option><option>CR1</option></select>
+        </label>
+        <label class="field"><span>Maquinaria</span>
+          <select id="ot-machinery" onchange="onMachineryChange('ot')"><option>Compresor</option><option>Chiller</option><option>TUMA</option><option>Bombas</option></select>
+        </label>
+      </div>
+      <label class="field"><span>Equipo ID</span><select id="ot-equipoid"></select></label>
+      <label class="field"><span>Título / falla reportada</span><input id="ot-title" placeholder="Ej. Ruido anormal en motor"></label>
+      <div class="field-row">
+        <label class="field"><span>Prioridad</span>
+          <select id="ot-priority"><option>Baja</option><option selected>Media</option><option>Alta</option></select>
+        </label>
+        <label class="field"><span>Asignado a</span><select id="ot-assigned"></select></label>
+      </div>
+      <label class="field"><span>Notas</span><textarea id="ot-notes" rows="2" placeholder="Opcional"></textarea></label>
+      <button class="btn btn-primary" id="ot-save-btn" onclick="saveOT()">Crear OT</button>
+    </div>
+  </div>
+
+  <!-- SHEET: Nuevo/editar checklist -->
+  <div class="overlay" id="overlay-checklist-new">
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title"><span>Nuevo checklist</span><span class="close" onclick="closeOverlay('overlay-checklist-new')">✕</span></div>
+      <div class="sheet-sub">Registra un checklist de mantenimiento preventivo listo para llenar. Una vez creado, sus datos (Área, Maquinaria, Equipo ID, Asignado) ya no se pueden editar.</div>
+      <div class="field-row">
+        <label class="field"><span>Área</span>
+          <select id="cl-new-area" onchange="onAreaChange('cl')"><option>Proveedor</option><option>Conveyor</option><option>CR1</option></select>
+        </label>
+        <label class="field"><span>Maquinaria</span>
+          <select id="cl-new-machinery" onchange="onMachineryChange('cl')"><option>Compresor</option><option>Chiller</option><option>TUMA</option><option>Bombas</option></select>
+        </label>
+      </div>
+      <label class="field"><span>Equipo ID</span><select id="cl-new-equipoid"></select></label>
+      <label class="field"><span>Asignado a</span><select id="cl-new-assigned"></select></label>
+      <button class="btn btn-primary" onclick="saveChecklist()">Crear Checklist</button>
+    </div>
+  </div>
+
+  <!-- SHEET: Detalle de checklist -->
+  <div class="overlay" id="overlay-checklist-detail">
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title"><span id="cld-title">Checklist</span><span class="close" onclick="closeOverlay('overlay-checklist-detail')">✕</span></div>
+      <div class="sheet-sub" id="cld-meta"></div>
+      <div class="sheet-sub" id="cld-datetime"></div>
+
+      <div class="row-head"><span class="label sm">Puntos de revisión</span></div>
+      <div id="cld-checklist" class="user-only"></div>
+
+      <div class="user-only">
+        <label class="field" style="margin-top:8px;"><span>Notas</span><textarea id="cld-notes" rows="2"></textarea></label>
+        <button class="btn btn-primary" onclick="saveChecklistDetail()">Guardar cambios</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SHEET: Detalle de OT -->
+  <div class="overlay" id="overlay-ot-detail">
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title"><span id="otd-title">—</span><span class="close" onclick="closeOverlay('overlay-ot-detail')">✕</span></div>
+      <div class="sheet-sub" id="otd-meta"></div>
+      <div class="sheet-sub" id="otd-datetime" style="display:none;"></div>
+
+      <div class="seg user-only" id="otd-status-seg">
+        <button data-v="Abierta" onclick="setOTStatus('Abierta')">Abierta</button>
+        <button data-v="Proceso" onclick="setOTStatus('Proceso')">Proceso</button>
+        <button data-v="Cerrada" onclick="setOTStatus('Cerrada')">Cerrada</button>
+      </div>
+
+      <div class="row-head"><span class="label sm">Checklist de mantenimiento</span></div>
+      <div id="otd-checklist" class="user-only"></div>
+
+      <div class="user-only">
+        <label class="field" style="margin-top:8px;"><span>Notas de cierre</span><textarea id="otd-notes" rows="2"></textarea></label>
+        <button class="btn btn-primary" onclick="saveOTDetail()">Guardar cambios</button>
+        <button class="btn btn-ghost" onclick="editOTFromDetail()">Editar datos de la OT</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+/* =======================================================
+   ESTADO Y PERSISTENCIA (unificado: inventario + equipos + OT)
+   ======================================================= */
+const STORE_KEY = 'pdm_unificado_v1';
+const SESSION_KEY = 'pdm_session_v1';
+const USERS = {
+  admin: {user:'BB', pass:'aa', role:'admin', label:'Administrador', title:'Jefe Sr de Mantenimiento'},
+  user:  {user:'CC', pass:'cc', role:'user',  label:'Usuario', title:'Técnico de Mantenimiento'}
+};
+let currentSession = null;
+const THEME_KEY = 'pdm_theme';
+
+const ITEM_ICONS = {
+  'Refacciones': '<path d="M14.7 6.3a4 4 0 00-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 005.4-5.4l-2.6 2.6-2-2 2.6-2.6z"/>',
+  'Filtros': '<path d="M4 5h16l-6 8v6l-4 2v-8L4 5z"/>',
+  'Lubricantes': '<path d="M12 3s6 6.5 6 11a6 6 0 11-12 0c0-4.5 6-11 6-11z"/>',
+  'Consumibles': '<path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/>',
+  'Herramientas': '<path d="M14.7 6.3a4 4 0 00-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 005.4-5.4l-2.6 2.6-2-2 2.6-2.6z"/>',
+  'EPP': '<path d="M12 3l7 3v6c0 4.5-3 8-7 9-4-1-7-4.5-7-9V6l7-3z"/>',
+  'Otro': '<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>'
+};
+const TYPE_ICONS = {
+  UMA:'<rect x="4" y="6" width="16" height="9" rx="1.5"/><path d="M8 19h8M12 15v4"/>',
+  TUMA:'<rect x="4" y="6" width="16" height="9" rx="1.5"/><path d="M8 19h8M12 15v4"/>',
+  CEN:'<circle cx="12" cy="12" r="7"/><path d="M9 9l6 6M15 9l-6 6"/>',
+  CH:'<path d="M12 3s6 6.5 6 11a6 6 0 11-12 0c0-4.5 6-11 6-11z"/>',
+  HEAT:'<path d="M4 5h16l-6 8v6l-4 2v-8L4 5z"/>',
+  BOMB:'<circle cx="10" cy="12" r="5"/><path d="M15 10h4v4h-4"/>',
+  Otro:'<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>'
+};
+const CHECKLIST_TEMPLATES = {
+  TUMA:['Revisar y/o cambiar filtros','Limpiar serpentín evaporador','Revisar bandas y poleas','Verificar lubricación de rodamientos','Revisar drenaje de condensados','Verificar amperaje del motor'],
+  Chiller:['Estado del equipo',
+    {label:'Capacidad de carga', unit:'%'},
+    {label:'Temperatura de carga', unit:'°C'},
+    {label:'Temperatura de descarga', unit:'°C'},
+    {label:'Presión de carga', unit:'psi'},
+    {label:'Presión de descarga', unit:'psi'}],
+  Compresor:['Revisar nivel de aceite','Revisar fugas de aire','Verificar válvula de alivio','Inspeccionar filtro de admisión',
+    {label:'Presión de trabajo', unit:'psi'},
+    {label:'Temperatura de operación', unit:'°C'}],
+  Bombas:[
+    {label:'Voltaje línea 1', unit:'V'},
+    {label:'Voltaje línea 2', unit:'V'},
+    {label:'Voltaje línea 3', unit:'V'},
+    {label:'Amperaje', unit:'A'}],
+  Otro:['Inspección visual general','Verificar funcionamiento','Revisar conexiones eléctricas']
+};
+const MACHINERY_ICONS = {
+  Compresor:'<circle cx="9" cy="15" r="5"/><path d="M9 10V5h6l3 3h-3v2"/><path d="M14 8h4v4h-4"/>',
+  Chiller: TYPE_ICONS.CH,
+  TUMA: TYPE_ICONS.TUMA,
+  Bombas: '<path d="M12 3s6 6.5 6 11a6 6 0 11-12 0c0-4.5 6-11 6-11z"/>'
+};
+const EQUIPO_IDS_BY_MACHINERY = {
+  Compresor: ['COMP001','COMP002'],
+  Chiller: ['CH001','CH002'],
+  TUMA: ['TUMA001','TUMA002'],
+  Bombas: ['BOMB001','BOMB002']
+};
+const TECNICOS_BY_AREA = {
+  Proveedor: ['Jan','Pedro'],
+  Conveyor: ['Silva','Chan'],
+  CR1: ['SAs','BB']
+};
+
+/* =======================================================
+   FIREBASE / FIRESTORE
+   ======================================================= */
+// ⚠️ Reemplaza estos valores con los de TU proyecto de Firebase
+// (Firebase console → Configuración del proyecto → Tus apps → SDK setup and configuration)
+const firebaseConfig = {
+  apiKey: "AIzaSyAoA920GZPopllS6vChcr7jwYDuEftmDV8",
+  authDomain: "prueba1-43f8e.firebaseapp.com",
+  projectId: "prueba1-43f8e",
+  storageBucket: "prueba1-43f8e.firebasestorage.app",
+  messagingSenderId: "668821387785",
+  appId: "1:668821387785:web:df75280fe9225ef23c16d8",
+  measurementId: "G-Y7XCDDVVZ6"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+db.enablePersistence({synchronizeTabs:true}).catch(err=>{
+  console.warn('Persistencia offline no disponible:', err.code);
+});
+
+let state = { items: [], equipos: [], ots: [], moves: [], checklists: [] };
+function persist(){ /* ya no se usa: los datos se guardan directo en Firestore por operación */ }
+
+let firestoreSyncStarted = false;
+function startFirestoreSync(){
+  if(firestoreSyncStarted) return;
+  firestoreSyncStarted = true;
+  db.collection('items').onSnapshot(snap=>{
+    state.items = snap.docs.map(d=>({...d.data(), id:d.id}));
+    renderInicio(); renderInventario();
+  }, err=>console.error('items sync:', err));
+  db.collection('equipos').onSnapshot(snap=>{
+    state.equipos = snap.docs.map(d=>({...d.data(), id:d.id}));
+    renderEquipos();
+  }, err=>console.error('equipos sync:', err));
+  db.collection('ots').onSnapshot(snap=>{
+    state.ots = snap.docs.map(d=>({...d.data(), id:d.id}));
+    renderInicio(); renderOTs(); renderEquipos();
+  }, err=>console.error('ots sync:', err));
+  db.collection('checklists').onSnapshot(snap=>{
+    state.checklists = snap.docs.map(d=>({...d.data(), id:d.id}));
+    renderChecklistLog();
+  }, err=>console.error('checklists sync:', err));
+  db.collection('moves').onSnapshot(snap=>{
+    state.moves = snap.docs.map(d=>({...d.data(), id:d.id}));
+    renderInventario();
+  }, err=>console.error('moves sync:', err));
+}
+function buildChecklist(type){
+  const tpl = CHECKLIST_TEMPLATES[type] || CHECKLIST_TEMPLATES.Otro;
+  return tpl.map(entry => typeof entry === 'string'
+    ? {label:entry, status:null, note:''}
+    : {label:entry.label, status:null, note:'', unit:entry.unit, isValue:true});
+}
+function uid(){ return 'x'+Math.random().toString(36).slice(2,9); }
+function svgIcon(inner){ return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`; }
+function scrollActiveChipIntoView(containerId){
+  const container = document.getElementById(containerId);
+  if(!container) return;
+  const active = container.querySelector('.chip.active');
+  if(!active) return;
+  active.scrollIntoView({behavior:'smooth', inline:'center', block:'nearest'});
+}
+const CHEVRON = '<svg class="chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>';
+function refreshEquipoIdSelect(kind, preselect){
+  const machinerySel = document.getElementById(kind==='ot' ? 'ot-machinery' : 'cl-new-machinery');
+  const idSel = document.getElementById(kind==='ot' ? 'ot-equipoid' : 'cl-new-equipoid');
+  const options = EQUIPO_IDS_BY_MACHINERY[machinerySel.value] || [];
+  idSel.innerHTML = options.map(v=>`<option>${v}</option>`).join('');
+  if(preselect && options.includes(preselect)) idSel.value = preselect;
+}
+function onMachineryChange(kind){ refreshEquipoIdSelect(kind); }
+function refreshAsignadoSelect(kind, preselect){
+  const areaSel = document.getElementById(kind==='ot' ? 'ot-area' : 'cl-new-area');
+  const asigSel = document.getElementById(kind==='ot' ? 'ot-assigned' : 'cl-new-assigned');
+  const options = TECNICOS_BY_AREA[areaSel.value] || [];
+  asigSel.innerHTML = options.map(v=>`<option>${v}</option>`).join('');
+  if(preselect && options.includes(preselect)) asigSel.value = preselect;
+}
+function onAreaChange(kind){ refreshAsignadoSelect(kind); }
+
+/* =======================================================
+   NAVEGACIÓN
+   ======================================================= */
+const TITLES = {inicio:'Inicio', inventario:'Inventario', equipos:'Equipos', ots:'Órdenes de trabajo', checklists:'Checklists', ajustes:'Ajustes'};
+function goScreen(name){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-'+name).classList.add('active');
+  document.querySelectorAll('.navbtn[data-screen]').forEach(b=>b.classList.toggle('active', b.dataset.screen===name));
+  document.getElementById('screen-title').textContent = TITLES[name] || name;
+  if(name==='inicio') renderInicio();
+  if(name==='inventario') renderInventario();
+  if(name==='equipos') renderEquipos();
+  if(name==='ots') renderOTs();
+  if(name==='checklists') renderChecklistLog();
+}
+function closeOverlay(id){ document.getElementById(id).classList.remove('open'); }
+function openOverlay(id){ document.getElementById(id).classList.add('open'); }
+function toast(msg){
+  const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 1800);
+}
+function equipoById(id){ return state.equipos.find(e=>e.id===id); }
+
+/* =======================================================
+   INICIO
+   ======================================================= */
+function renderInicio(){
+  document.getElementById('kpi-articulos').textContent = state.items.length;
+  const bajo = state.items.filter(i=>i.qty<=i.min);
+  document.getElementById('kpi-stock-bajo').textContent = bajo.length;
+
+  const abiertas = state.ots.filter(o=>o.status!=='Cerrada');
+  document.getElementById('kpi-ot-abiertas').textContent = abiertas.length;
+  const today = new Date().toISOString().slice(0,10);
+  const vencidas = abiertas.filter(o=>o.due && o.due < today);
+  document.getElementById('kpi-ot-vencidas').textContent = vencidas.length;
+
+  const urgent = abiertas.filter(o=>o.priority==='Alta').sort((a,b)=>(a.due||'9999').localeCompare(b.due||'9999'));
+  document.getElementById('urgent-list').innerHTML = urgent.length===0
+    ? `<div class="empty"><div class="t">Sin OTs urgentes</div>No hay órdenes de prioridad alta pendientes</div>`
+    : urgent.slice(0,3).map(otCardHTML).join('');
+
+  document.getElementById('alert-list').innerHTML = bajo.length===0
+    ? `<div class="empty"><div class="t">Todo en orden</div>Sin alertas de stock bajo</div>`
+    : bajo.slice(0,3).map(itemCardHTML).join('');
+}
+
+/* =======================================================
+   INVENTARIO
+   ======================================================= */
+const CATS = ['Todos','Refacciones','Filtros','Lubricantes','Consumibles','Herramientas','EPP','Otro'];
+let activeCat = 'Todos';
+function renderCatChips(){
+  document.getElementById('cat-chips').innerHTML = CATS.map(c=>
+    `<div class="chip ${c===activeCat?'active':''}" onclick="setCat('${c}')">${c}</div>`).join('');
+  document.getElementById('cat-label').textContent = activeCat;
+  scrollActiveChipIntoView('cat-chips');
+}
+function setCat(c){ activeCat=c; renderCatChips(); renderInventario(); }
+
+function itemCardHTML(item){
+  const low = item.qty <= item.min;
+  const icon = item.image
+    ? `<img src="${item.image}" style="width:100%;height:100%;object-fit:cover;border-radius:10px;">`
+    : svgIcon(ITEM_ICONS[item.category]||ITEM_ICONS.Otro);
+  return `<div class="card" onclick="openItemDetail('${item.id}')">
+    <div class="icon">${icon}</div>
+    <div class="body">
+      <div class="title">${item.name}${low ? '<span class="badge">BAJO</span>' : ''}</div>
+      <div class="desc">${item.category} · ${item.qty} ${item.unit} en stock · ${item.sku||'sin SKU'}</div>
+    </div>
+    ${CHEVRON}
+  </div>`;
+}
+function renderInventario(){
+  renderCatChips();
+  const q = (document.getElementById('search-input').value||'').toLowerCase();
+  let list = state.items.filter(i=>
+    (activeCat==='Todos' || i.category===activeCat) &&
+    (i.name.toLowerCase().includes(q) || (i.sku||'').toLowerCase().includes(q))
+  );
+  document.getElementById('inventario-list').innerHTML = list.length===0
+    ? `<div class="empty"><div class="t">Sin resultados</div>Ajusta la búsqueda o el filtro</div>`
+    : list.map(itemCardHTML).join('');
+  document.getElementById('recent-moves').innerHTML = movesHTML(state.moves.slice().sort((a,b)=>b.date-a.date).slice(0,4));
+}
+function fmtDate(ts){
+  const d = new Date(ts);
+  return d.toLocaleDateString('es-MX',{day:'2-digit',month:'short'}) + ' · ' + d.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
+}
+function movesHTML(moves){
+  if(moves.length===0) return `<div class="empty"><div class="t">Sin movimientos</div>Aún no hay actividad registrada</div>`;
+  return moves.map(m=>{
+    const item = state.items.find(i=>i.id===m.itemId);
+    const name = item ? item.name : 'Artículo eliminado';
+    const inner = m.type==='in' ? '<path d="M12 19V5M5 12l7-7 7 7"/>' : '<path d="M12 5v14M5 12l7 7 7-7"/>';
+    return `<div class="card" style="cursor:default;">
+      <div class="icon">${svgIcon(inner)}</div>
+      <div class="body"><div class="title" style="font-size:15px;">${name}</div><div class="desc">${fmtDate(m.date)}${m.note?' · '+m.note:''}</div></div>
+      <div style="font-weight:700;">${m.type==='in'?'+':'-'}${m.qty}</div>
+    </div>`;
+  }).join('');
+}
+
+/* Formulario: agregar / editar artículo */
+let pendingItemImage = null; // dataURL comprimido, o null si no hay foto
+function setImagePreview(dataUrl){
+  const img = document.getElementById('f-img-preview');
+  const ph = document.getElementById('f-img-placeholder');
+  const rm = document.getElementById('f-img-remove');
+  if(dataUrl){
+    img.src = dataUrl; img.style.display='block'; ph.style.display='none'; rm.style.display='block';
+  } else {
+    img.removeAttribute('src'); img.style.display='none'; ph.style.display='flex'; rm.style.display='none';
+  }
+}
+function onItemImageSelected(input){
+  const file = input.files && input.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (e)=>{
+    const src = new Image();
+    src.onload = ()=>{
+      const SIZE = 600; // miniatura cuadrada recomendada
+      const canvas = document.createElement('canvas');
+      canvas.width = SIZE; canvas.height = SIZE;
+      const ctx = canvas.getContext('2d');
+      const scale = Math.max(SIZE/src.width, SIZE/src.height);
+      const w = src.width*scale, h = src.height*scale;
+      ctx.drawImage(src, (SIZE-w)/2, (SIZE-h)/2, w, h);
+      pendingItemImage = canvas.toDataURL('image/jpeg', 0.75);
+      setImagePreview(pendingItemImage);
+    };
+    src.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+  input.value = '';
+}
+function removeItemImage(ev){
+  ev.stopPropagation();
+  pendingItemImage = null;
+  setImagePreview(null);
+}
+function openAddItem(){
+  document.getElementById('item-form-title').textContent = 'Nuevo artículo';
+  ['f-id','f-name','f-sku'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f-cat').value='Refacciones';
+  document.getElementById('f-unit').value='';
+  document.getElementById('f-qty').value=0;
+  document.getElementById('f-min').value=1;
+  document.getElementById('f-max').value=10;
+  pendingItemImage = null;
+  setImagePreview(null);
+  openOverlay('overlay-item');
+}
+function openEditItem(item){
+  document.getElementById('item-form-title').textContent = 'Editar artículo';
+  document.getElementById('f-id').value = item.id;
+  document.getElementById('f-name').value = item.name;
+  document.getElementById('f-cat').value = item.category;
+  document.getElementById('f-unit').value = item.unit;
+  document.getElementById('f-sku').value = item.sku||'';
+  document.getElementById('f-qty').value = item.qty;
+  document.getElementById('f-min').value = item.min;
+  document.getElementById('f-max').value = item.max;
+  pendingItemImage = item.image || null;
+  setImagePreview(pendingItemImage);
+  openOverlay('overlay-item');
+}
+function saveItem(){
+  const name = document.getElementById('f-name').value.trim();
+  if(!name){ toast('Escribe un nombre para el artículo'); return; }
+  const id = document.getElementById('f-id').value || uid();
+  const data = {
+    name,
+    category: document.getElementById('f-cat').value,
+    unit: document.getElementById('f-unit').value.trim() || 'pza',
+    sku: document.getElementById('f-sku').value.trim(),
+    qty: Number(document.getElementById('f-qty').value)||0,
+    min: Number(document.getElementById('f-min').value)||0,
+    max: Math.max(Number(document.getElementById('f-max').value)||1, 1),
+    image: pendingItemImage,
+  };
+  db.collection('items').doc(id).set(data)
+    .then(()=>toast('Artículo guardado'))
+    .catch(err=>toast('Error al guardar: '+err.message));
+  closeOverlay('overlay-item');
+}
+
+/* Detalle de artículo / movimiento de stock */
+let currentMoveType = 'out';
+function selectMoveType(type){
+  currentMoveType = type;
+  document.getElementById('move-type').value = type;
+  document.getElementById('btn-sel-in').classList.toggle('on', type==='in');
+  document.getElementById('btn-sel-out').classList.toggle('on', type==='out');
+}
+function openItemDetail(id){
+  const item = state.items.find(i=>i.id===id);
+  if(!item) return;
+  document.getElementById('detail-name').textContent = item.name;
+  document.getElementById('move-item-id').value = id;
+  document.getElementById('detail-num').textContent = 'Disponible: ' + item.qty;
+  document.getElementById('detail-meta').textContent =
+    `${item.category} · ${item.sku||'sin SKU'}`;
+  const img = document.getElementById('detail-img');
+  if(item.image){ img.src = item.image; img.style.display='block'; }
+  else { img.removeAttribute('src'); img.style.display='none'; }
+  selectMoveType('out');
+  document.getElementById('move-qty').value=1;
+  document.getElementById('move-note').value='';
+  openOverlay('overlay-item-detail');
+}
+function registerMove(){
+  const id = document.getElementById('move-item-id').value;
+  const item = state.items.find(i=>i.id===id);
+  const qty = Number(document.getElementById('move-qty').value);
+  if(!qty || qty<=0){ toast('Ingresa una cantidad válida'); return; }
+  if(currentMoveType==='out' && qty > item.qty){ toast('No hay suficiente stock disponible'); return; }
+  const newQty = item.qty + (currentMoveType==='in' ? qty : -qty);
+  const note = document.getElementById('move-note').value.trim();
+  db.collection('items').doc(id).update({qty:newQty})
+    .then(()=>db.collection('moves').add({itemId:id, type:currentMoveType, qty, note, date:Date.now()}))
+    .then(()=>toast(currentMoveType==='in' ? 'Entrada registrada' : 'Salida registrada'))
+    .catch(err=>toast('Error: '+err.message));
+  closeOverlay('overlay-item-detail');
+}
+function editFromDetail(){
+  const id = document.getElementById('move-item-id').value;
+  const item = state.items.find(i=>i.id===id);
+  closeOverlay('overlay-item-detail');
+  openEditItem(item);
+}
+
+/* =======================================================
+   EQUIPOS
+   ======================================================= */
+const EQ_CATS = ['Todos','UMA','TUMA','CEN','CH','HEAT','BOMB','Otro'];
+let activeEqCat = 'Todos';
+function renderEqChips(){
+  document.getElementById('eq-chips').innerHTML = EQ_CATS.map(c=>
+    `<div class="chip ${c===activeEqCat?'active':''}" onclick="setEqCat('${c}')">${c}</div>`).join('');
+  document.getElementById('eq-cat-label').textContent = activeEqCat;
+  scrollActiveChipIntoView('eq-chips');
+}
+function setEqCat(c){ activeEqCat=c; renderEqChips(); renderEquipos(); }
+function equipoCardHTML(e){
+  const openOTs = state.ots.filter(o=>o.status!=='Cerrada' && o.equipoId && o.equipoId.trim().toLowerCase()===e.tag.trim().toLowerCase()).length;
+  return `<div class="card" onclick="openEqDetail('${e.id}')">
+    <div class="icon">${svgIcon(TYPE_ICONS[e.type]||TYPE_ICONS.Otro)}</div>
+    <div class="body">
+      <div class="title">${e.tag}${openOTs>0 ? `<span class="badge">${openOTs} OT abierta${openOTs>1?'s':''}</span>` : ''}</div>
+      <div class="desc">${e.name} · ${e.loc}</div>
+    </div>
+    ${CHEVRON}
+  </div>`;
+}
+function renderEquipos(){
+  renderEqChips();
+  const q = (document.getElementById('eq-search').value||'').toLowerCase();
+  let list = state.equipos.filter(e =>
+    (activeEqCat==='Todos' || e.type===activeEqCat) &&
+    (e.tag.toLowerCase().includes(q) || e.loc.toLowerCase().includes(q) || e.name.toLowerCase().includes(q))
+  );
+  document.getElementById('equipos-list').innerHTML = list.length===0
+    ? `<div class="empty"><div class="t">Sin resultados</div>Ajusta la búsqueda o el filtro</div>`
+    : list.map(equipoCardHTML).join('');
+}
+function openAddEquipo(){
+  document.getElementById('eq-form-title').textContent = 'Nuevo equipo';
+  document.getElementById('eq-id').value='';
+  document.getElementById('eq-tag').value='';
+  document.getElementById('eq-type').value='UMA';
+  document.getElementById('eq-name').value=''; document.getElementById('eq-loc').value='';
+  openOverlay('overlay-equipo');
+}
+function editEquipo(e){
+  document.getElementById('eq-form-title').textContent = 'Editar equipo';
+  document.getElementById('eq-id').value=e.id;
+  document.getElementById('eq-tag').value=e.tag;
+  document.getElementById('eq-type').value=e.type;
+  document.getElementById('eq-name').value=e.name;
+  document.getElementById('eq-loc').value=e.loc;
+  openOverlay('overlay-equipo');
+}
+function saveEquipo(){
+  const tag = document.getElementById('eq-tag').value.trim();
+  if(!tag){ toast('Escribe un tag para el equipo'); return; }
+  const id = document.getElementById('eq-id').value || uid();
+  const data = {tag, type:document.getElementById('eq-type').value,
+    name:document.getElementById('eq-name').value.trim(), loc:document.getElementById('eq-loc').value.trim()};
+  db.collection('equipos').doc(id).set(data)
+    .then(()=>toast('Equipo guardado'))
+    .catch(err=>toast('Error al guardar: '+err.message));
+  closeOverlay('overlay-equipo');
+}
+let currentEqDetailId = null;
+function openEqDetail(id){
+  currentEqDetailId = id;
+  const e = equipoById(id);
+  document.getElementById('eqd-tag').textContent = e.tag;
+  document.getElementById('eqd-meta').textContent = `${e.name} · ${e.loc} · Tipo ${e.type}`;
+  const hist = state.ots.filter(o=>o.equipoId && o.equipoId.trim().toLowerCase()===e.tag.trim().toLowerCase()).sort((a,b)=>b.created-a.created);
+  document.getElementById('eqd-ot-history').innerHTML = hist.length===0
+    ? `<div class="empty"><div class="t">Sin historial</div>Este equipo aún no tiene órdenes de trabajo</div>`
+    : hist.map(otCardHTML).join('');
+  openOverlay('overlay-eq-detail');
+}
+function editEquipoFromDetail(){ closeOverlay('overlay-eq-detail'); editEquipo(equipoById(currentEqDetailId)); }
+const EQ_TYPE_TO_MACHINERY = {UMA:'TUMA', TUMA:'TUMA', CH:'Chiller', BOMB:'Bombas'};
+function newOTforEquipo(){
+  const e = equipoById(currentEqDetailId);
+  closeOverlay('overlay-eq-detail');
+  openAddOT({equipoId:e.tag, machinery:EQ_TYPE_TO_MACHINERY[e.type]});
+}
+
+/* =======================================================
+   ÓRDENES DE TRABAJO + CHECKLIST
+   ======================================================= */
+const OT_STATUSES = ['Todas','Abierta','Proceso','Cerrada'];
+let activeOTStatus = 'Todas';
+function renderOTChips(){
+  document.getElementById('ot-chips').innerHTML = OT_STATUSES.map(s=>
+    `<div class="chip ${s===activeOTStatus?'active':''}" onclick="setOTFilter('${s}')">${s}</div>`).join('');
+  document.getElementById('ot-status-label').textContent = activeOTStatus;
+  scrollActiveChipIntoView('ot-chips');
+}
+function setOTFilter(s){ activeOTStatus=s; renderOTChips(); renderOTs(); }
+function otCardHTML(o){
+  const icon = MACHINERY_ICONS[o.machinery] || TYPE_ICONS.Otro;
+  const meta = `${o.area||'—'} · ${o.machinery||'—'}${o.equipoId?' · '+o.equipoId:''}`;
+  return `<div class="card" onclick="openOTDetail('${o.id}')">
+    <div class="icon">${svgIcon(icon)}</div>
+    <div class="body">
+      <div class="title">${o.title}
+        <span class="badge status-${o.status==='Abierta'?'abierta':o.status==='Proceso'?'proceso':'cerrada'}">${o.status}</span>
+        ${o.priority==='Alta'?'<span class="badge priority-alta">ALTA</span>':o.priority==='Media'?'<span class="badge priority-media">MEDIA</span>':''}
+        ${o.workType?`<span class="badge">${o.workType}</span>`:''}
+      </div>
+      <div class="desc">${meta} · ${o.assigned||'Sin asignar'} · ${fmtDateTime(o.created)}</div>
+    </div>
+    ${CHEVRON}
+  </div>`;
+}
+function renderOTs(){
+  renderOTChips();
+  let list = state.ots.filter(o => activeOTStatus==='Todas' || o.status===activeOTStatus);
+  list = list.slice().sort((a,b)=>b.created-a.created);
+  document.getElementById('ots-list').innerHTML = list.length===0
+    ? `<div class="empty"><div class="t">Sin órdenes</div>No hay OTs con este filtro</div>`
+    : list.map(otCardHTML).join('');
+}
+function openAddOT(prefill){
+  document.getElementById('ot-form-title').textContent = 'Nueva orden de trabajo';
+  document.getElementById('ot-save-btn').textContent = 'Crear OT';
+  document.getElementById('ot-id').value='';
+  document.getElementById('ot-worktype').value = 'Preventivo';
+  document.getElementById('ot-area').value = (prefill&&prefill.area) || 'Proveedor';
+  document.getElementById('ot-machinery').value = (prefill&&prefill.machinery) || 'Compresor';
+  refreshEquipoIdSelect('ot', prefill&&prefill.equipoId);
+  refreshAsignadoSelect('ot');
+  document.getElementById('ot-title').value='';
+  document.getElementById('ot-priority').value='Media';
+  document.getElementById('ot-notes').value='';
+  openOverlay('overlay-ot');
+}
+function editOT(o){
+  document.getElementById('ot-form-title').textContent = 'Editar orden de trabajo';
+  document.getElementById('ot-save-btn').textContent = 'Guardar cambios';
+  document.getElementById('ot-id').value=o.id;
+  document.getElementById('ot-worktype').value=o.workType||'Preventivo';
+  document.getElementById('ot-area').value=o.area||'Proveedor';
+  document.getElementById('ot-machinery').value=o.machinery||'Compresor';
+  refreshEquipoIdSelect('ot', o.equipoId);
+  refreshAsignadoSelect('ot', o.assigned);
+  document.getElementById('ot-title').value=o.title;
+  document.getElementById('ot-priority').value=o.priority;
+  document.getElementById('ot-notes').value=o.notes||'';
+  openOverlay('overlay-ot');
+}
+function saveOT(){
+  const title = document.getElementById('ot-title').value.trim();
+  if(!title){ toast('Describe la falla o el trabajo a realizar'); return; }
+  const id = document.getElementById('ot-id').value;
+  const workType = document.getElementById('ot-worktype').value;
+  const area = document.getElementById('ot-area').value;
+  const machinery = document.getElementById('ot-machinery').value;
+  const equipoId = document.getElementById('ot-equipoid').value.trim();
+  let promise;
+  if(id){
+    promise = db.collection('ots').doc(id).update({workType, area, machinery, equipoId, title, priority:document.getElementById('ot-priority').value,
+      assigned:document.getElementById('ot-assigned').value.trim(),
+      notes:document.getElementById('ot-notes').value.trim()});
+  } else {
+    promise = db.collection('ots').doc(uid()).set({workType, area, machinery, equipoId, title, priority:document.getElementById('ot-priority').value, status:'Abierta',
+      assigned:document.getElementById('ot-assigned').value.trim(), created:Date.now(),
+      due:'', closed:null, notes:document.getElementById('ot-notes').value.trim(),
+      checklist:buildChecklist(machinery)});
+  }
+  promise.then(()=>toast('OT guardada')).catch(err=>toast('Error al guardar: '+err.message));
+  closeOverlay('overlay-ot');
+}
+
+function openAddChecklist(){
+  document.getElementById('cl-new-area').value = 'Proveedor';
+  document.getElementById('cl-new-machinery').value = 'Compresor';
+  refreshEquipoIdSelect('cl');
+  refreshAsignadoSelect('cl');
+  openOverlay('overlay-checklist-new');
+}
+function saveChecklist(){
+  const area = document.getElementById('cl-new-area').value;
+  const machinery = document.getElementById('cl-new-machinery').value;
+  const equipoId = document.getElementById('cl-new-equipoid').value.trim();
+  const assigned = document.getElementById('cl-new-assigned').value.trim();
+  const newId = uid();
+  const data = {area, machinery, equipoId, assigned, created:Date.now(), notes:'',
+    checklist:buildChecklist(machinery)};
+  state.checklists.push({...data, id:newId}); // inserción local optimista
+  closeOverlay('overlay-checklist-new');
+  openChecklistDetail(newId);
+  db.collection('checklists').doc(newId).set(data)
+    .catch(err=>toast('Error al guardar: '+err.message));
+}
+
+let currentOTId = null;
+let currentChecklistId = null;
+function clBtnHTML(item, idx, kind){
+  if(item.isValue){
+    return `<div class="cl-item">
+      <div class="cl-label">${item.label}</div>
+      <div class="cl-value">
+        <input type="number" step="any" inputmode="decimal" class="cl-value-input" value="${item.note||''}" placeholder="0" oninput="setItemValue('${kind}', ${idx}, this.value)">
+        <span class="cl-unit">${item.unit||''}</span>
+      </div>
+    </div>`;
+  }
+  return `<div class="cl-item">
+    <div class="cl-label">${item.label}</div>
+    <div class="cl-btns">
+      <button class="cl-btn sel-ok ${item.status==='ok'?'on':''}" onclick="setItemStatus('${kind}', ${idx},'ok')">✓</button>
+      <button class="cl-btn sel-fail ${item.status==='fail'?'on':''}" onclick="setItemStatus('${kind}', ${idx},'fail')">✕</button>
+      <button class="cl-btn sel-na ${item.status==='na'?'on':''}" onclick="setItemStatus('${kind}', ${idx},'na')">N/A</button>
+    </div>
+  </div>`;
+}
+function itemsSource(kind){
+  return kind==='ot' ? {list:state.ots, id:currentOTId} : {list:state.checklists, id:currentChecklistId};
+}
+function renderOTDetailChecklist(){
+  const o = state.ots.find(x=>x.id===currentOTId);
+  document.getElementById('otd-checklist').innerHTML = o.checklist.map((it,i)=>clBtnHTML(it,i,'ot')).join('');
+}
+function renderChecklistDetailItems(){
+  const o = state.checklists.find(x=>x.id===currentChecklistId);
+  document.getElementById('cld-checklist').innerHTML = o.checklist.map((it,i)=>clBtnHTML(it,i,'cl')).join('');
+}
+function setItemStatus(kind, idx, val){
+  const {list, id} = itemsSource(kind);
+  const o = list.find(x=>x.id===id);
+  o.checklist[idx].status = o.checklist[idx].status===val ? null : val;
+  db.collection(kind==='ot' ? 'ots' : 'checklists').doc(id).update({checklist:o.checklist})
+    .catch(err=>toast('Error: '+err.message));
+  kind==='ot' ? renderOTDetailChecklist() : renderChecklistDetailItems();
+}
+const _valueDebounce = {};
+function setItemValue(kind, idx, val){
+  const {list, id} = itemsSource(kind);
+  const o = list.find(x=>x.id===id);
+  o.checklist[idx].note = val;
+  o.checklist[idx].status = val.trim()!=='' ? 'filled' : null;
+  const key = kind+'-'+id;
+  clearTimeout(_valueDebounce[key]);
+  _valueDebounce[key] = setTimeout(()=>{
+    db.collection(kind==='ot' ? 'ots' : 'checklists').doc(id).update({checklist:o.checklist})
+      .catch(err=>toast('Error: '+err.message));
+  }, 500);
+}
+function setOTStatus(val){
+  const o = state.ots.find(x=>x.id===currentOTId);
+  o.status = val;
+  if(val==='Cerrada' && !o.closed) o.closed = Date.now();
+  if(val!=='Cerrada') o.closed = null;
+  db.collection('ots').doc(currentOTId).update({status:o.status, closed:o.closed})
+    .catch(err=>toast('Error: '+err.message));
+  document.querySelectorAll('#otd-status-seg button').forEach(b=>b.classList.toggle('on', b.dataset.v===val));
+}
+function fmtDateTime(ts){
+  const d = new Date(ts);
+  const dateStr = d.toLocaleDateString('es-MX', {day:'2-digit', month:'short', year:'numeric'});
+  const timeStr = d.toLocaleTimeString('es-MX', {hour:'2-digit', minute:'2-digit'});
+  return `${dateStr} · ${timeStr}`;
+}
+function openOTDetail(id){
+  currentOTId = id;
+  const o = state.ots.find(x=>x.id===id);
+  const meta = `${o.area||'—'} · ${o.machinery||'—'}${o.equipoId?' · '+o.equipoId:''}`;
+  document.getElementById('otd-title').textContent = o.title;
+  document.getElementById('otd-datetime').textContent = fmtDateTime(o.created);
+  document.getElementById('otd-meta').textContent = `${meta} · ${o.workType||''} · Prioridad ${o.priority} · ${o.assigned||'Sin asignar'}`;
+  document.querySelectorAll('#otd-status-seg button').forEach(b=>b.classList.toggle('on', b.dataset.v===o.status));
+  document.getElementById('otd-notes').value = o.notes||'';
+  renderOTDetailChecklist();
+  openOverlay('overlay-ot-detail');
+}
+function saveOTDetail(){
+  const notes = document.getElementById('otd-notes').value.trim();
+  db.collection('ots').doc(currentOTId).update({notes})
+    .then(()=>toast('Cambios guardados'))
+    .catch(err=>toast('Error: '+err.message));
+  closeOverlay('overlay-ot-detail');
+}
+function editOTFromDetail(){
+  const o = state.ots.find(x=>x.id===currentOTId);
+  closeOverlay('overlay-ot-detail');
+  editOT(o);
+}
+
+function openChecklistDetail(id){
+  currentChecklistId = id;
+  const o = state.checklists.find(x=>x.id===id);
+  if(!o) return;
+  const meta = `${o.area||'—'} · ${o.machinery||'—'}${o.equipoId?' · '+o.equipoId:''}`;
+  document.getElementById('cld-title').textContent = `Checklist · ${o.machinery||''}`;
+  document.getElementById('cld-meta').textContent = `${meta} · ${o.assigned||'Sin asignar'}`;
+  document.getElementById('cld-datetime').textContent = fmtDateTime(o.created);
+  document.getElementById('cld-notes').value = o.notes||'';
+  renderChecklistDetailItems();
+  openOverlay('overlay-checklist-detail');
+}
+function saveChecklistDetail(){
+  const notes = document.getElementById('cld-notes').value.trim();
+  db.collection('checklists').doc(currentChecklistId).update({notes})
+    .catch(err=>toast('Error: '+err.message));
+  closeOverlay('overlay-checklist-detail');
+}
+
+function checklistLogCardHTML(o){
+  const total = o.checklist.length;
+  const done = o.checklist.filter(c=>c.status).length;
+  const fails = o.checklist.filter(c=>c.status==='fail').length;
+  return `<div class="card" onclick="openChecklistDetail('${o.id}')">
+    <div class="icon">${svgIcon(MACHINERY_ICONS[o.machinery]||TYPE_ICONS.Otro)}</div>
+    <div class="body">
+      <div class="title">${o.equipoId||o.machinery||'—'} ${fails>0?`<span class="badge priority-alta">${fails} falla${fails>1?'s':''}</span>`:''}</div>
+      <div class="desc">${o.area||'—'} · ${done}/${total} puntos revisados · ${fmtDateTime(o.created)}</div>
+    </div>
+    ${CHEVRON}
+  </div>`;
+}
+function renderChecklistLog(){
+  const list = state.checklists.slice().sort((a,b)=>b.created-a.created);
+  document.getElementById('checklist-log').innerHTML = list.length===0
+    ? `<div class="empty"><div class="t">Sin checklists</div>Crea un checklist desde el botón de arriba</div>`
+    : list.map(checklistLogCardHTML).join('');
+}
+
+/* =======================================================
+   AJUSTES
+   ======================================================= */
+function exportData(){
+  const blob = new Blob([JSON.stringify(state, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'pdm-respaldo.json'; a.click();
+  URL.revokeObjectURL(url);
+  toast('Respaldo descargado');
+}
+function confirmReset(){
+  if(confirm('¿Borrar todos los datos guardados en la nube (inventario, equipos, OTs y checklists)? Esta acción no se puede deshacer.')){
+    toast('Borrando datos...');
+    const collections = ['items','equipos','ots','checklists','moves'];
+    Promise.all(collections.map(name =>
+      db.collection(name).get().then(snap=>{
+        const batch = db.batch();
+        snap.docs.forEach(d=>batch.delete(d.ref));
+        return batch.commit();
+      })
+    )).then(()=>location.reload())
+      .catch(err=>toast('Error al borrar: '+err.message));
+  }
+}
+
+function setTheme(mode){
+  document.documentElement.setAttribute('data-theme', mode);
+  localStorage.setItem(THEME_KEY, mode);
+  document.querySelectorAll('#theme-seg button').forEach(b=>b.classList.toggle('on', b.dataset.v===mode));
+}
+function initTheme(){
+  const saved = localStorage.getItem(THEME_KEY) || 'dark';
+  setTheme(saved);
+}
+
+/* =======================================================
+   AUTENTICACIÓN
+   ======================================================= */
+function doLogin(){
+  const u = document.getElementById('login-user').value.trim();
+  const p = document.getElementById('login-pass').value;
+  const match = Object.values(USERS).find(cfg => cfg.user === u && cfg.pass === p);
+  if(match){
+    currentSession = {user:match.user, role:match.role, label:match.label, title:match.title};
+    localStorage.setItem(SESSION_KEY, JSON.stringify(currentSession));
+    document.getElementById('login-error').textContent = '';
+    document.getElementById('login-user').value = '';
+    document.getElementById('login-pass').value = '';
+    applySession();
+  } else {
+    document.getElementById('login-error').textContent = 'Usuario o contraseña incorrectos';
+  }
+}
+function doLogout(){
+  currentSession = null;
+  localStorage.removeItem(SESSION_KEY);
+  document.body.classList.remove('logged-in','role-admin','role-user');
+  document.getElementById('login-screen').classList.remove('hidden');
+  goScreen('inicio');
+}
+function applySession(){
+  document.body.classList.remove('role-admin','role-user');
+  document.body.classList.add('logged-in','role-'+currentSession.role);
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('session-user').textContent = currentSession.user;
+  document.getElementById('session-role').textContent = currentSession.title || currentSession.label;
+  startFirestoreSync();
+  renderInicio(); renderInventario(); renderEquipos(); renderOTs(); renderChecklistLog();
+}
+function initSession(){
+  const saved = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
+  if(saved && USERS[saved.role] && USERS[saved.role].user === saved.user){
+    currentSession = {...saved, title: saved.title || USERS[saved.role].title};
+    applySession();
+  } else {
+    document.getElementById('login-screen').classList.remove('hidden');
+  }
+}
+
+/* =======================================================
+   INIT
+   ======================================================= */
+persist();
+initTheme();
+renderInicio();
+initSession();
+</script>
+</body>
+</html>
