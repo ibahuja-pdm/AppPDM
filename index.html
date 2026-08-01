@@ -171,6 +171,9 @@
 
   /* ===== RESTRICCIÓN POR ROL ===== */
   body.role-user .admin-only{display:none !important;}
+  body.role-pdm .admin-only{display:none !important;}
+  body.role-pdm .salida-only{display:none !important;}
+  body.role-pdm .navbtn:not([data-screen="ots"]):not([data-screen="checklists"]):not([data-screen="ajustes"]){display:none !important;}
   #app{display:none;}
   body.logged-in #app{display:flex;}
 
@@ -314,21 +317,27 @@
   <nav class="bottomnav">
     <button class="navbtn active" data-screen="inicio" onclick="goScreen('inicio')" title="Inicio">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>
+      <span>Inicio</span>
     </button>
     <button class="navbtn" data-screen="inventario" onclick="goScreen('inventario')" title="Inventario">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg>
+      <span>Inventario</span>
     </button>
     <button class="navbtn" data-screen="equipos" onclick="goScreen('equipos')" title="Equipos">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="16" height="10" rx="1.5"/><path d="M8 20h8M12 14v6"/></svg>
+      <span>Equipos</span>
     </button>
     <button class="navbtn" data-screen="ots" onclick="goScreen('ots')" title="Órdenes de trabajo">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 3h6l1 3H8l1-3z"/><rect x="5" y="6" width="14" height="15" rx="1.5"/><path d="M9 12h6M9 16h6"/></svg>
+      <span>OTs</span>
     </button>
     <button class="navbtn" data-screen="checklists" onclick="goScreen('checklists')" title="Checklist">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M8 8l2 2 3-3M8 14l2 2 3-3"/></svg>
+      <span>Checklist</span>
     </button>
     <button class="navbtn" data-screen="ajustes" onclick="goScreen('ajustes')" title="Ajustes">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      <span>Ajustes</span>
     </button>
   </nav>
 
@@ -379,16 +388,16 @@
 
       <input type="hidden" id="move-type" value="in">
       <input type="hidden" id="move-item-id">
-      <div class="admin-only">
-        <div class="seg">
-          <button id="btn-sel-in" onclick="selectMoveType('in')">▲ Entrada</button>
-          <button class="on" id="btn-sel-out" onclick="selectMoveType('out')">▼ Salida</button>
-        </div>
+      <div class="seg salida-only">
+        <button id="btn-sel-in" class="admin-only" onclick="selectMoveType('in')">▲ Entrada</button>
+        <button class="on" id="btn-sel-out" onclick="selectMoveType('out')">▼ Salida</button>
+      </div>
+      <div class="salida-only">
         <label class="field"><span>Cantidad</span><input id="move-qty" type="number" min="1" placeholder="0"></label>
         <label class="field"><span>Nota (opcional)</span><input id="move-note" placeholder="Ej. Orden de trabajo #245"></label>
         <button class="btn btn-primary" onclick="registerMove()">Registrar movimiento</button>
-        <button class="btn btn-ghost" onclick="editFromDetail()">Editar artículo</button>
       </div>
+      <button class="btn btn-ghost admin-only" onclick="editFromDetail()">Editar artículo</button>
     </div>
   </div>
 
@@ -530,7 +539,8 @@ const STORE_KEY = 'pdm_unificado_v1';
 const SESSION_KEY = 'pdm_session_v1';
 const USERS = {
   admin: {user:'BB', pass:'aa', role:'admin', label:'Administrador', title:'Jefe Sr de Mantenimiento'},
-  user:  {user:'CC', pass:'cc', role:'user',  label:'Usuario', title:'Técnico de Mantenimiento'}
+  user:  {user:'CC', pass:'cc', role:'user',  label:'Usuario', title:'Técnico de Mantenimiento'},
+  pdm:   {user:'PDM', pass:'pdm', role:'pdm', label:'PDM', title:'Usuario PDM'}
 };
 let currentSession = null;
 const THEME_KEY = 'pdm_theme';
@@ -884,6 +894,8 @@ function openItemDetail(id){
   openOverlay('overlay-item-detail');
 }
 function registerMove(){
+  if(currentSession.role==='pdm'){ toast('No tienes permiso para movimientos de inventario'); return; }
+  if(currentSession.role==='user' && currentMoveType!=='out'){ toast('Solo puedes registrar salidas de material'); return; }
   const id = document.getElementById('move-item-id').value;
   const item = state.items.find(i=>i.id===id);
   const qty = Number(document.getElementById('move-qty').value);
@@ -1284,18 +1296,19 @@ function doLogin(){
 function doLogout(){
   currentSession = null;
   localStorage.removeItem(SESSION_KEY);
-  document.body.classList.remove('logged-in','role-admin','role-user');
+  document.body.classList.remove('logged-in','role-admin','role-user','role-pdm');
   document.getElementById('login-screen').classList.remove('hidden');
   goScreen('inicio');
 }
 function applySession(){
-  document.body.classList.remove('role-admin','role-user');
+  document.body.classList.remove('role-admin','role-user','role-pdm');
   document.body.classList.add('logged-in','role-'+currentSession.role);
   document.getElementById('login-screen').classList.add('hidden');
   document.getElementById('session-user').textContent = currentSession.user;
   document.getElementById('session-role').textContent = currentSession.title || currentSession.label;
   startFirestoreSync();
   renderInicio(); renderInventario(); renderEquipos(); renderOTs(); renderChecklistLog();
+  goScreen(currentSession.role==='pdm' ? 'ots' : 'inicio');
 }
 function initSession(){
   const saved = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
