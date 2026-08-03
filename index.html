@@ -117,7 +117,11 @@
   label.field span{display:block; font-size:12px; color:var(--text-dim); font-weight:600; margin-bottom:6px;}
   .field input, .field select, .field textarea{width:100%; background:var(--card-2); border:none; border-radius:12px;
     padding:12px 13px; color:var(--text); font-size:15px; font-family:inherit; outline:none; resize:vertical;}
+  .field input:disabled, .field textarea:disabled{opacity:.5; cursor:not-allowed;}
   .field-row{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+  .time-pair{display:flex; align-items:center; gap:6px;}
+  .time-pair input{width:100%; text-align:center;}
+  .time-pair .time-sep{color:var(--text-dim); font-weight:700;}
 
   .img-picker{position:relative; width:84px; height:84px;}
   .img-picker img{width:84px; height:84px; object-fit:cover; border-radius:14px;}
@@ -135,8 +139,10 @@
   .seg button{flex:1; padding:11px; border-radius:12px; border:none; background:var(--card-2); color:var(--text-dim);
     font-weight:700; font-size:14px; cursor:pointer;}
   .seg button.on{background:var(--text); color:var(--on-accent);}
+  .seg button:disabled{opacity:.5; cursor:not-allowed;}
 
   .cl-item{display:flex; align-items:flex-start; gap:12px; padding:14px 0; border-bottom:1px solid var(--divider);}
+  #cld-checklist.locked{opacity:.5; pointer-events:none;}
   .cl-item:last-child{border-bottom:none;}
   .cl-item .cl-label{flex:1; font-size:15px; padding-top:2px;}
   .cl-btns{display:flex; gap:6px; flex-shrink:0;}
@@ -169,11 +175,44 @@
   .login-sub{font-size:14px; color:var(--text-dim); text-align:center; margin-bottom:28px;}
   .login-error{font-size:13.5px; color:#FF8A80; text-align:center; min-height:18px; margin:-6px 0 10px;}
 
-  /* ===== RESTRICCIÓN POR ROL ===== */
-  body.role-user .admin-only{display:none !important;}
-  body.role-pdm .admin-only{display:none !important;}
-  body.role-pdm .salida-only{display:none !important;}
-  body.role-pdm .navbtn:not([data-screen="ots"]):not([data-screen="checklists"]):not([data-screen="ajustes"]){display:none !important;}
+  /* ===== PERMISOS POR ROL (configurable) ===== */
+.admin-only, .user-only, .pdm-only, .salida-only{display:none;}
+
+/* Permisos exclusivos del Admin */
+body.role-admin button.admin-only{display:inline-block;}
+body.role-admin div.admin-only:not(.card){display:block;}
+body.role-admin div.card.admin-only{display:flex;}
+
+/* Permisos del Usuario (Técnico) - Habilitados también para el Admin */
+body.role-user button.user-only,
+body.role-admin button.user-only {display:inline-block;}
+
+body.role-user div.user-only:not(.seg),
+body.role-admin div.user-only:not(.seg) {display:block;}
+
+body.role-user div.seg.user-only,
+body.role-admin div.seg.user-only {display:flex;}
+
+/* Permisos PDM */
+body.role-pdm button.pdm-only{display:inline-block;}
+body.role-pdm div.pdm-only:not(.seg):not(.card){display:block;}
+body.role-pdm div.seg.pdm-only{display:flex;}
+body.role-pdm div.card.pdm-only{display:flex;}
+
+/* Movimientos de inventario (entrada/salida): solo admin y usuario pueden registrar */
+body.role-user div.salida-only:not(.seg),
+body.role-admin div.salida-only:not(.seg) {display:block;}
+body.role-user div.seg.salida-only,
+body.role-admin div.seg.salida-only {display:flex;}
+
+/* Menú inferior: cada rol solo ve las pantallas a las que tiene acceso.
+   Admin ve las 6 pestañas; Usuario (técnico) no ve Equipos; PDM solo OTs y Ajustes. */
+body.role-pdm .navbtn[data-screen="inicio"],
+body.role-pdm .navbtn[data-screen="inventario"],
+body.role-pdm .navbtn[data-screen="equipos"],
+body.role-pdm .navbtn[data-screen="checklists"] {display:none;}
+body.role-user .navbtn[data-screen="equipos"] {display:none;}
+
   #app{display:none;}
   body.logged-in #app{display:flex;}
 
@@ -184,8 +223,11 @@
   .session-card .who .role{font-size:12.5px; color:var(--text-dim);}
   .session-card button{padding:9px 14px; border-radius:10px; border:none; background:var(--card-2);
     color:var(--text); font-weight:700; font-size:13px; cursor:pointer;}
+
 </style>
 </head>
+<body>
+
 <body>
 
 <!-- PANTALLA DE INICIO DE SESIÓN -->
@@ -265,7 +307,7 @@
       <div class="sticky-head">
         <div class="row-head">
           <span class="label sm" id="ot-status-label">Todas</span>
-          <button class="pill-btn user-only" onclick="openAddOT()">+ Nueva OT</button>
+          <button class="pill-btn user-only pdm-only" onclick="openAddOT()">+ Nueva OT</button>
         </div>
         <div class="chip-row" id="ot-chips"></div>
       </div>
@@ -428,7 +470,7 @@
       <div class="sheet-handle"></div>
       <div class="sheet-title"><span id="eqd-tag">—</span><span class="close" onclick="closeOverlay('overlay-eq-detail')">✕</span></div>
       <div class="sheet-sub" id="eqd-meta"></div>
-      <button class="btn btn-primary user-only" onclick="newOTforEquipo()">+ Nueva OT para este equipo</button>
+      <button class="btn btn-primary user-only pdm-only" onclick="newOTforEquipo()">+ Nueva OT para este equipo</button>
       <button class="btn btn-ghost admin-only" onclick="editEquipoFromDetail()">Editar equipo</button>
       <div class="row-head"><span class="label sm">Historial de OT</span></div>
       <div id="eqd-ot-history"></div>
@@ -453,7 +495,13 @@
         </label>
       </div>
       <label class="field"><span>Equipo ID</span><select id="ot-equipoid"></select></label>
-      <label class="field"><span>Título / falla reportada</span><input id="ot-title" placeholder="Ej. Ruido anormal en motor"></label>
+      <label class="field"><span>Título / falla reportada</span>
+        <select id="ot-title">
+          <option>Falla mecánica</option>
+          <option>Falla eléctrica</option>
+          <option>No especificado</option>
+        </select>
+      </label>
       <div class="field-row">
         <label class="field"><span>Prioridad</span>
           <select id="ot-priority"><option>Baja</option><option selected>Media</option><option>Alta</option></select>
@@ -489,7 +537,7 @@
   <div class="overlay" id="overlay-checklist-detail">
     <div class="sheet">
       <div class="sheet-handle"></div>
-      <div class="sheet-title"><span id="cld-title">Checklist</span><span class="close" onclick="closeOverlay('overlay-checklist-detail')">✕</span></div>
+      <div class="sheet-title"><span id="cld-title">Checklist</span><span class="close" onclick="closeChecklistDetail()">✕</span></div>
       <div class="sheet-sub" id="cld-meta"></div>
       <div class="sheet-sub" id="cld-datetime"></div>
 
@@ -498,7 +546,9 @@
 
       <div class="user-only">
         <label class="field" style="margin-top:8px;"><span>Notas</span><textarea id="cld-notes" rows="2"></textarea></label>
-        <button class="btn btn-primary" onclick="saveChecklistDetail()">Guardar cambios</button>
+        <div id="cld-save-actions">
+          <button class="btn btn-primary" onclick="saveChecklistDetail()">Guardar cambios</button>
+        </div>
       </div>
     </div>
   </div>
@@ -514,16 +564,35 @@
       <div class="seg user-only" id="otd-status-seg">
         <button data-v="Abierta" onclick="setOTStatus('Abierta')">Abierta</button>
         <button data-v="Proceso" onclick="setOTStatus('Proceso')">Proceso</button>
-        <button data-v="Cerrada" onclick="setOTStatus('Cerrada')">Cerrada</button>
       </div>
 
-      <div class="row-head"><span class="label sm">Checklist de mantenimiento</span></div>
-      <div id="otd-checklist" class="user-only"></div>
+      <div class="user-only">
+        <label class="field"><span>Descripción de trabajo</span><textarea id="otd-desc" rows="2"></textarea></label>
+        <label class="field"><span>Causa de la falla</span><textarea id="otd-causa" rows="2"></textarea></label>
+        <div class="field-row">
+          <label class="field"><span>Hora de inicio</span>
+            <div class="time-pair">
+              <input type="text" inputmode="numeric" maxlength="2" placeholder="HH" id="otd-hora-inicio-h" oninput="otAutoAdvanceTime(this,'otd-hora-inicio-m')">
+              <span class="time-sep">:</span>
+              <input type="text" inputmode="numeric" maxlength="2" placeholder="MM" id="otd-hora-inicio-m">
+            </div>
+          </label>
+          <label class="field"><span>Hora de finalizado</span>
+            <div class="time-pair">
+              <input type="text" inputmode="numeric" maxlength="2" placeholder="HH" id="otd-hora-fin-h" oninput="otAutoAdvanceTime(this,'otd-hora-fin-m')">
+              <span class="time-sep">:</span>
+              <input type="text" inputmode="numeric" maxlength="2" placeholder="MM" id="otd-hora-fin-m">
+            </div>
+          </label>
+        </div>
+        <label class="field"><span>Técnico que participó</span><input id="otd-tecnico" placeholder="Nombre del técnico"></label>
+      </div>
 
       <div class="user-only">
         <label class="field" style="margin-top:8px;"><span>Notas de cierre</span><textarea id="otd-notes" rows="2"></textarea></label>
-        <button class="btn btn-primary" onclick="saveOTDetail()">Guardar cambios</button>
-        <button class="btn btn-ghost" onclick="editOTFromDetail()">Editar datos de la OT</button>
+        <div id="otd-edit-actions">
+          <button class="btn btn-primary" onclick="closeOT()">Cerrar OT</button>
+        </div>
       </div>
     </div>
   </div>
@@ -531,18 +600,21 @@
   <div class="toast" id="toast"></div>
 </div>
 
+
 <script>
 /* =======================================================
-   ESTADO Y PERSISTENCIA (unificado: inventario + equipos + OT)
+   CONFIG.JS — constantes, catálogos y config de Firebase
+   No depende de ningún otro archivo. Cárgalo primero.
    ======================================================= */
-const STORE_KEY = 'pdm_unificado_v1';
+
 const SESSION_KEY = 'pdm_session_v1';
+
 const USERS = {
-  admin: {user:'BB', pass:'aa', role:'admin', label:'Administrador', title:'Jefe Sr de Mantenimiento'},
-  user:  {user:'CC', pass:'cc', role:'user',  label:'Usuario', title:'Técnico de Mantenimiento'},
-  pdm:   {user:'PDM', pass:'pdm', role:'pdm', label:'PDM', title:'Usuario PDM'}
+  admin: {user:'aa', pass:'aa', role:'admin', label:'Administrador', title:'Jefe Sr de Mantenimiento'},
+  user:  {user:'bb', pass:'bb', role:'user',  label:'Usuario', title:'Técnico de Mantenimiento'},
+  pdm:   {user:'cc', pass:'cc', role:'pdm', label:'PDM', title:'Usuario PDM'}
 };
-let currentSession = null;
+
 const THEME_KEY = 'pdm_theme';
 
 const ITEM_ICONS = {
@@ -554,6 +626,7 @@ const ITEM_ICONS = {
   'EPP': '<path d="M12 3l7 3v6c0 4.5-3 8-7 9-4-1-7-4.5-7-9V6l7-3z"/>',
   'Otro': '<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>'
 };
+
 const TYPE_ICONS = {
   UMA:'<rect x="4" y="6" width="16" height="9" rx="1.5"/><path d="M8 19h8M12 15v4"/>',
   TUMA:'<rect x="4" y="6" width="16" height="9" rx="1.5"/><path d="M8 19h8M12 15v4"/>',
@@ -563,6 +636,7 @@ const TYPE_ICONS = {
   BOMB:'<circle cx="10" cy="12" r="5"/><path d="M15 10h4v4h-4"/>',
   Otro:'<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>'
 };
+
 const CHECKLIST_TEMPLATES = {
   TUMA:['Revisar y/o cambiar filtros','Limpiar serpentín evaporador','Revisar bandas y poleas','Verificar lubricación de rodamientos','Revisar drenaje de condensados','Verificar amperaje del motor'],
   Chiller:['Estado del equipo',
@@ -581,29 +655,27 @@ const CHECKLIST_TEMPLATES = {
     {label:'Amperaje', unit:'A'}],
   Otro:['Inspección visual general','Verificar funcionamiento','Revisar conexiones eléctricas']
 };
+
 const MACHINERY_ICONS = {
   Compresor:'<circle cx="9" cy="15" r="5"/><path d="M9 10V5h6l3 3h-3v2"/><path d="M14 8h4v4h-4"/>',
   Chiller: TYPE_ICONS.CH,
   TUMA: TYPE_ICONS.TUMA,
   Bombas: '<path d="M12 3s6 6.5 6 11a6 6 0 11-12 0c0-4.5 6-11 6-11z"/>'
 };
+
 const EQUIPO_IDS_BY_MACHINERY = {
   Compresor: ['COMP001','COMP002'],
   Chiller: ['CH001','CH002'],
   TUMA: ['TUMA001','TUMA002'],
   Bombas: ['BOMB001','BOMB002']
 };
+
 const TECNICOS_BY_AREA = {
   Proveedor: ['Jan','Pedro'],
   Conveyor: ['Silva','Chan'],
   CR1: ['SAs','BB']
 };
 
-/* =======================================================
-   FIREBASE / FIRESTORE
-   ======================================================= */
-// ⚠️ Reemplaza estos valores con los de TU proyecto de Firebase
-// (Firebase console → Configuración del proyecto → Tus apps → SDK setup and configuration)
 const firebaseConfig = {
   apiKey: "AIzaSyAoA920GZPopllS6vChcr7jwYDuEftmDV8",
   authDomain: "prueba1-43f8e.firebaseapp.com",
@@ -613,17 +685,37 @@ const firebaseConfig = {
   appId: "1:668821387785:web:df75280fe9225ef23c16d8",
   measurementId: "G-Y7XCDDVVZ6"
 };
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-db.enablePersistence({synchronizeTabs:true}).catch(err=>{
-  console.warn('Persistencia offline no disponible:', err.code);
-});
+
+
+/* =======================================================
+   CORE.JS — estado global, Firestore y utilidades compartidas
+   por TODAS las pestañas (fechas, toasts, overlays, selects).
+   Depende de config.js. Cárgalo segundo.
+   ======================================================= */
+
+let currentSession = null;
+
+let db = null;
+try {
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.firestore();
+  db.enablePersistence({synchronizeTabs:true}).catch(err=>{
+    console.warn('Persistencia offline no disponible:', err.code);
+  });
+} catch(err){
+  console.error('No se pudo inicializar Firebase:', err);
+}
 
 let state = { items: [], equipos: [], ots: [], moves: [], checklists: [] };
-function persist(){ /* ya no se usa: los datos se guardan directo en Firestore por operación */ }
+
+function dbReady(){
+  if(!db){ toast('Sin conexión a la base de datos. Revisa tu configuración de Firebase.'); return false; }
+  return true;
+}
 
 let firestoreSyncStarted = false;
 function startFirestoreSync(){
+  if(!db){ console.warn('Firestore no disponible: revisa firebaseConfig y tu conexión.'); return; }
   if(firestoreSyncStarted) return;
   firestoreSyncStarted = true;
   db.collection('items').onSnapshot(snap=>{
@@ -647,14 +739,18 @@ function startFirestoreSync(){
     renderInventario();
   }, err=>console.error('moves sync:', err));
 }
+
 function buildChecklist(type){
   const tpl = CHECKLIST_TEMPLATES[type] || CHECKLIST_TEMPLATES.Otro;
   return tpl.map(entry => typeof entry === 'string'
     ? {label:entry, status:null, note:''}
     : {label:entry.label, status:null, note:'', unit:entry.unit, isValue:true});
 }
+
 function uid(){ return 'x'+Math.random().toString(36).slice(2,9); }
+
 function svgIcon(inner){ return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`; }
+
 function scrollActiveChipIntoView(containerId){
   const container = document.getElementById(containerId);
   if(!container) return;
@@ -662,7 +758,9 @@ function scrollActiveChipIntoView(containerId){
   if(!active) return;
   active.scrollIntoView({behavior:'smooth', inline:'center', block:'nearest'});
 }
+
 const CHEVRON = '<svg class="chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>';
+
 function refreshEquipoIdSelect(kind, preselect){
   const machinerySel = document.getElementById(kind==='ot' ? 'ot-machinery' : 'cl-new-machinery');
   const idSel = document.getElementById(kind==='ot' ? 'ot-equipoid' : 'cl-new-equipoid');
@@ -670,7 +768,9 @@ function refreshEquipoIdSelect(kind, preselect){
   idSel.innerHTML = options.map(v=>`<option>${v}</option>`).join('');
   if(preselect && options.includes(preselect)) idSel.value = preselect;
 }
+
 function onMachineryChange(kind){ refreshEquipoIdSelect(kind); }
+
 function refreshAsignadoSelect(kind, preselect){
   const areaSel = document.getElementById(kind==='ot' ? 'ot-area' : 'cl-new-area');
   const asigSel = document.getElementById(kind==='ot' ? 'ot-assigned' : 'cl-new-assigned');
@@ -678,44 +778,75 @@ function refreshAsignadoSelect(kind, preselect){
   asigSel.innerHTML = options.map(v=>`<option>${v}</option>`).join('');
   if(preselect && options.includes(preselect)) asigSel.value = preselect;
 }
+
 function onAreaChange(kind){ refreshAsignadoSelect(kind); }
 
+function closeOverlay(id){ document.getElementById(id).classList.remove('open'); }
+function openOverlay(id){ document.getElementById(id).classList.add('open'); }
+
+/* Helpers de formulario: leer/escribir un campo por id sin repetir
+   document.getElementById(...) en cada línea de cada pantalla. */
+function val(id){ return document.getElementById(id).value; }
+function valTrim(id){ return document.getElementById(id).value.trim(); }
+function setVal(id, v){ document.getElementById(id).value = v; }
+function setText(id, v){ document.getElementById(id).textContent = v; }
+
+function toast(msg){
+  const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 1800);
+}
+
+function equipoById(id){ return state.equipos.find(e=>e.id===id); }
+
+function fmtDate(ts){
+  const d = new Date(ts);
+  return d.toLocaleDateString('es-MX',{day:'2-digit',month:'short'}) + ' · ' + d.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit',hour12:false});
+}
+
+function fmtDateTime(ts){
+  const d = new Date(ts);
+  const dateStr = d.toLocaleDateString('es-MX', {day:'2-digit', month:'short', year:'numeric'});
+  const timeStr = d.toLocaleTimeString('es-MX', {hour:'2-digit', minute:'2-digit', hour12:false});
+  return `${dateStr} · ${timeStr}`;
+}
+
+
 /* =======================================================
-   NAVEGACIÓN
+   NAV.JS — navegación entre pestañas
+   Depende de core.js y de que las funciones render*() de cada
+   pestaña ya estén cargadas antes de usarse (goScreen las llama
+   en respuesta a clics, no al cargar la página).
    ======================================================= */
+
 const TITLES = {inicio:'Inicio', inventario:'Inventario', equipos:'Equipos', ots:'Órdenes de trabajo', checklists:'Checklists', ajustes:'Ajustes'};
 function goScreen(name){
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById('screen-'+name).classList.add('active');
   document.querySelectorAll('.navbtn[data-screen]').forEach(b=>b.classList.toggle('active', b.dataset.screen===name));
-  document.getElementById('screen-title').textContent = TITLES[name] || name;
+  setText('screen-title', TITLES[name] || name);
   if(name==='inicio') renderInicio();
   if(name==='inventario') renderInventario();
   if(name==='equipos') renderEquipos();
   if(name==='ots') renderOTs();
   if(name==='checklists') renderChecklistLog();
 }
-function closeOverlay(id){ document.getElementById(id).classList.remove('open'); }
-function openOverlay(id){ document.getElementById(id).classList.add('open'); }
-function toast(msg){
-  const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
-  setTimeout(()=>t.classList.remove('show'), 1800);
-}
-function equipoById(id){ return state.equipos.find(e=>e.id===id); }
+
 
 /* =======================================================
-   INICIO
+   INICIO.JS — pantalla de Inicio (KPIs, urgentes, alertas)
+   Depende de core.js. No lo llama ninguna otra pestaña.
    ======================================================= */
+
 function renderInicio(){
-  document.getElementById('kpi-articulos').textContent = state.items.length;
+  setText('kpi-articulos', state.items.length);
   const bajo = state.items.filter(i=>i.qty<=i.min);
-  document.getElementById('kpi-stock-bajo').textContent = bajo.length;
+  setText('kpi-stock-bajo', bajo.length);
 
   const abiertas = state.ots.filter(o=>o.status!=='Cerrada');
-  document.getElementById('kpi-ot-abiertas').textContent = abiertas.length;
+  setText('kpi-ot-abiertas', abiertas.length);
   const today = new Date().toISOString().slice(0,10);
   const vencidas = abiertas.filter(o=>o.due && o.due < today);
-  document.getElementById('kpi-ot-vencidas').textContent = vencidas.length;
+  setText('kpi-ot-vencidas', vencidas.length);
 
   const urgent = abiertas.filter(o=>o.priority==='Alta').sort((a,b)=>(a.due||'9999').localeCompare(b.due||'9999'));
   document.getElementById('urgent-list').innerHTML = urgent.length===0
@@ -727,15 +858,18 @@ function renderInicio(){
     : bajo.slice(0,3).map(itemCardHTML).join('');
 }
 
+
 /* =======================================================
-   INVENTARIO
+   INVENTARIO.JS — pantalla de Inventario (artículos y movimientos)
+   Depende de core.js. Autocontenido: nada más lo usa.
    ======================================================= */
+
 const CATS = ['Todos','Refacciones','Filtros','Lubricantes','Consumibles','Herramientas','EPP','Otro'];
 let activeCat = 'Todos';
 function renderCatChips(){
   document.getElementById('cat-chips').innerHTML = CATS.map(c=>
     `<div class="chip ${c===activeCat?'active':''}" onclick="setCat('${c}')">${c}</div>`).join('');
-  document.getElementById('cat-label').textContent = activeCat;
+  setText('cat-label', activeCat);
   scrollActiveChipIntoView('cat-chips');
 }
 function setCat(c){ activeCat=c; renderCatChips(); renderInventario(); }
@@ -756,7 +890,7 @@ function itemCardHTML(item){
 }
 function renderInventario(){
   renderCatChips();
-  const q = (document.getElementById('search-input').value||'').toLowerCase();
+  const q = (val('search-input')||'').toLowerCase();
   let list = state.items.filter(i=>
     (activeCat==='Todos' || i.category===activeCat) &&
     (i.name.toLowerCase().includes(q) || (i.sku||'').toLowerCase().includes(q))
@@ -766,10 +900,7 @@ function renderInventario(){
     : list.map(itemCardHTML).join('');
   document.getElementById('recent-moves').innerHTML = movesHTML(state.moves.slice().sort((a,b)=>b.date-a.date).slice(0,4));
 }
-function fmtDate(ts){
-  const d = new Date(ts);
-  return d.toLocaleDateString('es-MX',{day:'2-digit',month:'short'}) + ' · ' + d.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});
-}
+
 function movesHTML(moves){
   if(moves.length===0) return `<div class="empty"><div class="t">Sin movimientos</div>Aún no hay actividad registrada</div>`;
   return moves.map(m=>{
@@ -824,43 +955,44 @@ function removeItemImage(ev){
   setImagePreview(null);
 }
 function openAddItem(){
-  document.getElementById('item-form-title').textContent = 'Nuevo artículo';
-  ['f-id','f-name','f-sku'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('f-cat').value='Refacciones';
-  document.getElementById('f-unit').value='';
-  document.getElementById('f-qty').value=0;
-  document.getElementById('f-min').value=1;
-  document.getElementById('f-max').value=10;
+  setText('item-form-title', 'Nuevo artículo');
+  ['f-id','f-name','f-sku'].forEach(id=>setVal(id, ''));
+  setVal('f-cat', 'Refacciones');
+  setVal('f-unit', '');
+  setVal('f-qty', 0);
+  setVal('f-min', 1);
+  setVal('f-max', 10);
   pendingItemImage = null;
   setImagePreview(null);
   openOverlay('overlay-item');
 }
 function openEditItem(item){
-  document.getElementById('item-form-title').textContent = 'Editar artículo';
-  document.getElementById('f-id').value = item.id;
-  document.getElementById('f-name').value = item.name;
-  document.getElementById('f-cat').value = item.category;
-  document.getElementById('f-unit').value = item.unit;
-  document.getElementById('f-sku').value = item.sku||'';
-  document.getElementById('f-qty').value = item.qty;
-  document.getElementById('f-min').value = item.min;
-  document.getElementById('f-max').value = item.max;
+  setText('item-form-title', 'Editar artículo');
+  setVal('f-id', item.id);
+  setVal('f-name', item.name);
+  setVal('f-cat', item.category);
+  setVal('f-unit', item.unit);
+  setVal('f-sku', item.sku||'');
+  setVal('f-qty', item.qty);
+  setVal('f-min', item.min);
+  setVal('f-max', item.max);
   pendingItemImage = item.image || null;
   setImagePreview(pendingItemImage);
   openOverlay('overlay-item');
 }
 function saveItem(){
-  const name = document.getElementById('f-name').value.trim();
+  if(!dbReady()) return;
+  const name = valTrim('f-name');
   if(!name){ toast('Escribe un nombre para el artículo'); return; }
-  const id = document.getElementById('f-id').value || uid();
+  const id = val('f-id') || uid();
   const data = {
     name,
-    category: document.getElementById('f-cat').value,
-    unit: document.getElementById('f-unit').value.trim() || 'pza',
-    sku: document.getElementById('f-sku').value.trim(),
-    qty: Number(document.getElementById('f-qty').value)||0,
-    min: Number(document.getElementById('f-min').value)||0,
-    max: Math.max(Number(document.getElementById('f-max').value)||1, 1),
+    category: val('f-cat'),
+    unit: valTrim('f-unit') || 'pza',
+    sku: valTrim('f-sku'),
+    qty: Number(val('f-qty'))||0,
+    min: Number(val('f-min'))||0,
+    max: Math.max(Number(val('f-max'))||1, 1),
     image: pendingItemImage,
   };
   db.collection('items').doc(id).set(data)
@@ -873,36 +1005,36 @@ function saveItem(){
 let currentMoveType = 'out';
 function selectMoveType(type){
   currentMoveType = type;
-  document.getElementById('move-type').value = type;
+  setVal('move-type', type);
   document.getElementById('btn-sel-in').classList.toggle('on', type==='in');
   document.getElementById('btn-sel-out').classList.toggle('on', type==='out');
 }
 function openItemDetail(id){
   const item = state.items.find(i=>i.id===id);
   if(!item) return;
-  document.getElementById('detail-name').textContent = item.name;
-  document.getElementById('move-item-id').value = id;
-  document.getElementById('detail-num').textContent = 'Disponible: ' + item.qty;
-  document.getElementById('detail-meta').textContent =
-    `${item.category} · ${item.sku||'sin SKU'}`;
+  setText('detail-name', item.name);
+  setVal('move-item-id', id);
+  setText('detail-num', 'Disponible: ' + item.qty);
+  setText('detail-meta', `${item.category} · ${item.sku||'sin SKU'}`);
   const img = document.getElementById('detail-img');
   if(item.image){ img.src = item.image; img.style.display='block'; }
   else { img.removeAttribute('src'); img.style.display='none'; }
   selectMoveType('out');
-  document.getElementById('move-qty').value=1;
-  document.getElementById('move-note').value='';
+  setVal('move-qty', 1);
+  setVal('move-note', '');
   openOverlay('overlay-item-detail');
 }
 function registerMove(){
+  if(!dbReady()) return;
   if(currentSession.role==='pdm'){ toast('No tienes permiso para movimientos de inventario'); return; }
   if(currentSession.role==='user' && currentMoveType!=='out'){ toast('Solo puedes registrar salidas de material'); return; }
-  const id = document.getElementById('move-item-id').value;
+  const id = val('move-item-id');
   const item = state.items.find(i=>i.id===id);
-  const qty = Number(document.getElementById('move-qty').value);
+  const qty = Number(val('move-qty'));
   if(!qty || qty<=0){ toast('Ingresa una cantidad válida'); return; }
   if(currentMoveType==='out' && qty > item.qty){ toast('No hay suficiente stock disponible'); return; }
   const newQty = item.qty + (currentMoveType==='in' ? qty : -qty);
-  const note = document.getElementById('move-note').value.trim();
+  const note = valTrim('move-note');
   db.collection('items').doc(id).update({qty:newQty})
     .then(()=>db.collection('moves').add({itemId:id, type:currentMoveType, qty, note, date:Date.now()}))
     .then(()=>toast(currentMoveType==='in' ? 'Entrada registrada' : 'Salida registrada'))
@@ -910,21 +1042,25 @@ function registerMove(){
   closeOverlay('overlay-item-detail');
 }
 function editFromDetail(){
-  const id = document.getElementById('move-item-id').value;
+  const id = val('move-item-id');
   const item = state.items.find(i=>i.id===id);
   closeOverlay('overlay-item-detail');
   openEditItem(item);
 }
 
+
 /* =======================================================
-   EQUIPOS
+   EQUIPOS.JS — pantalla de Equipos
+   Depende de core.js. Llama a openAddOT() (ots.js) solo al
+   crear una OT desde un equipo.
    ======================================================= */
+
 const EQ_CATS = ['Todos','UMA','TUMA','CEN','CH','HEAT','BOMB','Otro'];
 let activeEqCat = 'Todos';
 function renderEqChips(){
   document.getElementById('eq-chips').innerHTML = EQ_CATS.map(c=>
     `<div class="chip ${c===activeEqCat?'active':''}" onclick="setEqCat('${c}')">${c}</div>`).join('');
-  document.getElementById('eq-cat-label').textContent = activeEqCat;
+  setText('eq-cat-label', activeEqCat);
   scrollActiveChipIntoView('eq-chips');
 }
 function setEqCat(c){ activeEqCat=c; renderEqChips(); renderEquipos(); }
@@ -941,7 +1077,7 @@ function equipoCardHTML(e){
 }
 function renderEquipos(){
   renderEqChips();
-  const q = (document.getElementById('eq-search').value||'').toLowerCase();
+  const q = (val('eq-search')||'').toLowerCase();
   let list = state.equipos.filter(e =>
     (activeEqCat==='Todos' || e.type===activeEqCat) &&
     (e.tag.toLowerCase().includes(q) || e.loc.toLowerCase().includes(q) || e.name.toLowerCase().includes(q))
@@ -951,28 +1087,29 @@ function renderEquipos(){
     : list.map(equipoCardHTML).join('');
 }
 function openAddEquipo(){
-  document.getElementById('eq-form-title').textContent = 'Nuevo equipo';
-  document.getElementById('eq-id').value='';
-  document.getElementById('eq-tag').value='';
-  document.getElementById('eq-type').value='UMA';
-  document.getElementById('eq-name').value=''; document.getElementById('eq-loc').value='';
+  setText('eq-form-title', 'Nuevo equipo');
+  setVal('eq-id', '');
+  setVal('eq-tag', '');
+  setVal('eq-type', 'UMA');
+  setVal('eq-name', ''); setVal('eq-loc', '');
   openOverlay('overlay-equipo');
 }
 function editEquipo(e){
-  document.getElementById('eq-form-title').textContent = 'Editar equipo';
-  document.getElementById('eq-id').value=e.id;
-  document.getElementById('eq-tag').value=e.tag;
-  document.getElementById('eq-type').value=e.type;
-  document.getElementById('eq-name').value=e.name;
-  document.getElementById('eq-loc').value=e.loc;
+  setText('eq-form-title', 'Editar equipo');
+  setVal('eq-id', e.id);
+  setVal('eq-tag', e.tag);
+  setVal('eq-type', e.type);
+  setVal('eq-name', e.name);
+  setVal('eq-loc', e.loc);
   openOverlay('overlay-equipo');
 }
 function saveEquipo(){
-  const tag = document.getElementById('eq-tag').value.trim();
+  if(!dbReady()) return;
+  const tag = valTrim('eq-tag');
   if(!tag){ toast('Escribe un tag para el equipo'); return; }
-  const id = document.getElementById('eq-id').value || uid();
-  const data = {tag, type:document.getElementById('eq-type').value,
-    name:document.getElementById('eq-name').value.trim(), loc:document.getElementById('eq-loc').value.trim()};
+  const id = val('eq-id') || uid();
+  const data = {tag, type:val('eq-type'),
+    name:valTrim('eq-name'), loc:valTrim('eq-loc')};
   db.collection('equipos').doc(id).set(data)
     .then(()=>toast('Equipo guardado'))
     .catch(err=>toast('Error al guardar: '+err.message));
@@ -982,8 +1119,8 @@ let currentEqDetailId = null;
 function openEqDetail(id){
   currentEqDetailId = id;
   const e = equipoById(id);
-  document.getElementById('eqd-tag').textContent = e.tag;
-  document.getElementById('eqd-meta').textContent = `${e.name} · ${e.loc} · Tipo ${e.type}`;
+  setText('eqd-tag', e.tag);
+  setText('eqd-meta', `${e.name} · ${e.loc} · Tipo ${e.type}`);
   const hist = state.ots.filter(o=>o.equipoId && o.equipoId.trim().toLowerCase()===e.tag.trim().toLowerCase()).sort((a,b)=>b.created-a.created);
   document.getElementById('eqd-ot-history').innerHTML = hist.length===0
     ? `<div class="empty"><div class="t">Sin historial</div>Este equipo aún no tiene órdenes de trabajo</div>`
@@ -998,15 +1135,23 @@ function newOTforEquipo(){
   openAddOT({equipoId:e.tag, machinery:EQ_TYPE_TO_MACHINERY[e.type]});
 }
 
+
 /* =======================================================
-   ÓRDENES DE TRABAJO + CHECKLIST
+   OTS.JS — pantalla de Órdenes de trabajo
+   Depende SOLO de core.js. Ciclo de vida simple: se crea
+   (Abierta), opcionalmente pasa por Proceso, y se cierra con
+   el botón "Cerrar OT" (guarda todo y queda bloqueada para
+   siempre — Cerrada es un estado final, ya no aparece como
+   opción del segmento de estatus dentro del detalle).
    ======================================================= */
+
 const OT_STATUSES = ['Todas','Abierta','Proceso','Cerrada'];
+let currentOTId = null;
 let activeOTStatus = 'Todas';
 function renderOTChips(){
   document.getElementById('ot-chips').innerHTML = OT_STATUSES.map(s=>
     `<div class="chip ${s===activeOTStatus?'active':''}" onclick="setOTFilter('${s}')">${s}</div>`).join('');
-  document.getElementById('ot-status-label').textContent = activeOTStatus;
+  setText('ot-status-label', activeOTStatus);
   scrollActiveChipIntoView('ot-chips');
 }
 function setOTFilter(s){ activeOTStatus=s; renderOTChips(); renderOTs(); }
@@ -1035,70 +1180,160 @@ function renderOTs(){
     : list.map(otCardHTML).join('');
 }
 function openAddOT(prefill){
-  document.getElementById('ot-form-title').textContent = 'Nueva orden de trabajo';
-  document.getElementById('ot-save-btn').textContent = 'Crear OT';
-  document.getElementById('ot-id').value='';
-  document.getElementById('ot-worktype').value = 'Preventivo';
-  document.getElementById('ot-area').value = (prefill&&prefill.area) || 'Proveedor';
-  document.getElementById('ot-machinery').value = (prefill&&prefill.machinery) || 'Compresor';
+  setText('ot-form-title', 'Nueva orden de trabajo');
+  setText('ot-save-btn', 'Crear OT');
+  setVal('ot-id', '');
+  setVal('ot-worktype', 'Preventivo');
+  setVal('ot-area', (prefill&&prefill.area) || 'Proveedor');
+  setVal('ot-machinery', (prefill&&prefill.machinery) || 'Compresor');
   refreshEquipoIdSelect('ot', prefill&&prefill.equipoId);
   refreshAsignadoSelect('ot');
-  document.getElementById('ot-title').value='';
-  document.getElementById('ot-priority').value='Media';
-  document.getElementById('ot-notes').value='';
-  openOverlay('overlay-ot');
-}
-function editOT(o){
-  document.getElementById('ot-form-title').textContent = 'Editar orden de trabajo';
-  document.getElementById('ot-save-btn').textContent = 'Guardar cambios';
-  document.getElementById('ot-id').value=o.id;
-  document.getElementById('ot-worktype').value=o.workType||'Preventivo';
-  document.getElementById('ot-area').value=o.area||'Proveedor';
-  document.getElementById('ot-machinery').value=o.machinery||'Compresor';
-  refreshEquipoIdSelect('ot', o.equipoId);
-  refreshAsignadoSelect('ot', o.assigned);
-  document.getElementById('ot-title').value=o.title;
-  document.getElementById('ot-priority').value=o.priority;
-  document.getElementById('ot-notes').value=o.notes||'';
+  setVal('ot-title', 'Falla mecánica');
+  setVal('ot-priority', 'Media');
+  setVal('ot-notes', '');
   openOverlay('overlay-ot');
 }
 function saveOT(){
-  const title = document.getElementById('ot-title').value.trim();
+  if(!dbReady()) return;
+  const title = valTrim('ot-title');
   if(!title){ toast('Describe la falla o el trabajo a realizar'); return; }
-  const id = document.getElementById('ot-id').value;
-  const workType = document.getElementById('ot-worktype').value;
-  const area = document.getElementById('ot-area').value;
-  const machinery = document.getElementById('ot-machinery').value;
-  const equipoId = document.getElementById('ot-equipoid').value.trim();
+  const id = val('ot-id');
+  const workType = val('ot-worktype');
+  const area = val('ot-area');
+  const machinery = val('ot-machinery');
+  const equipoId = valTrim('ot-equipoid');
   let promise;
   if(id){
-    promise = db.collection('ots').doc(id).update({workType, area, machinery, equipoId, title, priority:document.getElementById('ot-priority').value,
-      assigned:document.getElementById('ot-assigned').value.trim(),
-      notes:document.getElementById('ot-notes').value.trim()});
+    promise = db.collection('ots').doc(id).update({workType, area, machinery, equipoId, title, priority:val('ot-priority'),
+      assigned:valTrim('ot-assigned'),
+      notes:valTrim('ot-notes')});
   } else {
-    promise = db.collection('ots').doc(uid()).set({workType, area, machinery, equipoId, title, priority:document.getElementById('ot-priority').value, status:'Abierta',
-      assigned:document.getElementById('ot-assigned').value.trim(), created:Date.now(),
-      due:'', closed:null, notes:document.getElementById('ot-notes').value.trim(),
-      checklist:buildChecklist(machinery)});
+    promise = db.collection('ots').doc(uid()).set({workType, area, machinery, equipoId, title, priority:val('ot-priority'), status:'Abierta',
+      assigned:valTrim('ot-assigned'), created:Date.now(),
+      due:'', notes:valTrim('ot-notes'),
+      desc:'', causa:'', horaInicio:'', horaFin:'', tecnico:''});
   }
   promise.then(()=>toast('OT guardada')).catch(err=>toast('Error al guardar: '+err.message));
   closeOverlay('overlay-ot');
 }
+function otHighlightStatusSeg(status){
+  document.querySelectorAll('#otd-status-seg button').forEach(b=>b.classList.toggle('on', b.dataset.v===status));
+}
+function setOTStatus(val){
+  if(!dbReady()) return;
+  const o = state.ots.find(x=>x.id===currentOTId);
+  if(o.status==='Cerrada') return; // ya está cerrada: es un estado final
+  o.status = val;
+  db.collection('ots').doc(currentOTId).update({status:val})
+    .catch(err=>toast('Error: '+err.message));
+  otHighlightStatusSeg(val);
+}
+function openOTDetail(id){
+  currentOTId = id;
+  const o = state.ots.find(x=>x.id===id);
+  const meta = `${o.area||'—'} · ${o.machinery||'—'}${o.equipoId?' · '+o.equipoId:''}`;
+  setText('otd-title', o.title);
+  setText('otd-datetime', fmtDateTime(o.created));
+  setText('otd-meta', `${meta} · ${o.workType||''} · Prioridad ${o.priority} · ${o.assigned||'Sin asignar'}`);
+  otHighlightStatusSeg(o.status);
+  setVal('otd-desc', o.desc||'');
+  setVal('otd-causa', o.causa||'');
+  otFillTimePair('otd-hora-inicio-h', 'otd-hora-inicio-m', o.horaInicio);
+  otFillTimePair('otd-hora-fin-h', 'otd-hora-fin-m', o.horaFin);
+  setVal('otd-tecnico', o.tecnico||'');
+  setVal('otd-notes', o.notes||'');
+  updateOTDetailLockState(o);
+  openOverlay('overlay-ot-detail');
+}
+const OTD_LOCKABLE_FIELDS = ['otd-desc','otd-causa','otd-hora-inicio-h','otd-hora-inicio-m','otd-hora-fin-h','otd-hora-fin-m','otd-tecnico','otd-notes'];
+function updateOTDetailLockState(o){
+  const isClosed = o.status==='Cerrada';
+  OTD_LOCKABLE_FIELDS.forEach(id=>{ document.getElementById(id).disabled = isClosed; });
+  document.getElementById('otd-edit-actions').style.display = isClosed ? 'none' : '';
+  document.querySelectorAll('#otd-status-seg button').forEach(b=>{ b.disabled = isClosed; });
+}
+
+/* ============ Casillas HH / MM (hora de inicio y finalizado, siempre 24h) ============ */
+function otAutoAdvanceTime(el, nextId){
+  el.value = el.value.replace(/\D/g,'').slice(0,2);
+  if(el.value.length===2) document.getElementById(nextId).focus();
+}
+function otFillTimePair(hId, mId, hhmm){
+  const parts = (hhmm||'').split(':');
+  setVal(hId, parts[0] || '');
+  setVal(mId, parts[1] || '');
+}
+function otReadTimePair(hId, mId, label){
+  const h = valTrim(hId);
+  const m = valTrim(mId);
+  if(!h && !m) return {ok:true, value:''};
+  const hNum = Number(h), mNum = Number(m);
+  if(h==='' || m==='' || !/^\d+$/.test(h) || !/^\d+$/.test(m) || hNum<0 || hNum>23 || mNum<0 || mNum>59){
+    toast(`${label} inválida, usa HH (00-23) y MM (00-59)`);
+    return {ok:false};
+  }
+  return {ok:true, value: String(hNum).padStart(2,'0')+':'+String(mNum).padStart(2,'0')};
+}
+/* Lee y valida Descripción/Causa/Horas/Técnico/Notas. La usa
+   closeOT() al cerrar la OT (guarda todo de un jalón). */
+function otGatherFieldsData(){
+  const horaInicio = otReadTimePair('otd-hora-inicio-h','otd-hora-inicio-m','Hora de inicio');
+  if(!horaInicio.ok) return {ok:false};
+  const horaFin = otReadTimePair('otd-hora-fin-h','otd-hora-fin-m','Hora de finalizado');
+  if(!horaFin.ok) return {ok:false};
+  return {ok:true, data:{
+    desc: valTrim('otd-desc'),
+    causa: valTrim('otd-causa'),
+    horaInicio: horaInicio.value,
+    horaFin: horaFin.value,
+    tecnico: valTrim('otd-tecnico'),
+    notes: valTrim('otd-notes'),
+  }};
+}
+function closeOT(){
+  if(!dbReady()) return;
+  const o = state.ots.find(x=>x.id===currentOTId);
+  if(o.status==='Cerrada') return; // ya está cerrada
+  const fields = otGatherFieldsData();
+  if(!fields.ok) return;
+  const data = {...fields.data, status:'Cerrada'};
+  o.status = 'Cerrada';
+  Object.assign(o, fields.data);
+  db.collection('ots').doc(currentOTId).update(data)
+    .then(()=>toast('OT cerrada'))
+    .catch(err=>toast('Error: '+err.message));
+  updateOTDetailLockState(o);
+  closeOverlay('overlay-ot-detail');
+}
+
+
+/* =======================================================
+   CHECKLISTS.JS — pantalla de Checklists (historial)
+   Depende SOLO de core.js. No comparte nada con ots.js:
+   la lógica de sus puntos de revisión vive aquí completa
+   (ver bloque "Puntos de revisión del checklist" más abajo).
+
+   Regla de negocio: un checklist se puede llenar y guardar
+   libremente la PRIMERA vez (justo al crearlo). En cuanto lo
+   cierras, pasa al historial y queda bloqueado para siempre
+   (ver closeChecklistDetail / campo `locked`).
+   ======================================================= */
 
 function openAddChecklist(){
-  document.getElementById('cl-new-area').value = 'Proveedor';
-  document.getElementById('cl-new-machinery').value = 'Compresor';
+  setVal('cl-new-area', 'Proveedor');
+  setVal('cl-new-machinery', 'Compresor');
   refreshEquipoIdSelect('cl');
   refreshAsignadoSelect('cl');
   openOverlay('overlay-checklist-new');
 }
 function saveChecklist(){
-  const area = document.getElementById('cl-new-area').value;
-  const machinery = document.getElementById('cl-new-machinery').value;
-  const equipoId = document.getElementById('cl-new-equipoid').value.trim();
-  const assigned = document.getElementById('cl-new-assigned').value.trim();
+  if(!dbReady()) return;
+  const area = val('cl-new-area');
+  const machinery = val('cl-new-machinery');
+  const equipoId = valTrim('cl-new-equipoid');
+  const assigned = valTrim('cl-new-assigned');
   const newId = uid();
-  const data = {area, machinery, equipoId, assigned, created:Date.now(), notes:'',
+  const data = {area, machinery, equipoId, assigned, created:Date.now(), notes:'', locked:false,
     checklist:buildChecklist(machinery)};
   state.checklists.push({...data, id:newId}); // inserción local optimista
   closeOverlay('overlay-checklist-new');
@@ -1106,116 +1341,42 @@ function saveChecklist(){
   db.collection('checklists').doc(newId).set(data)
     .catch(err=>toast('Error al guardar: '+err.message));
 }
-
-let currentOTId = null;
-let currentChecklistId = null;
-function clBtnHTML(item, idx, kind){
-  if(item.isValue){
-    return `<div class="cl-item">
-      <div class="cl-label">${item.label}</div>
-      <div class="cl-value">
-        <input type="number" step="any" inputmode="decimal" class="cl-value-input" value="${item.note||''}" placeholder="0" oninput="setItemValue('${kind}', ${idx}, this.value)">
-        <span class="cl-unit">${item.unit||''}</span>
-      </div>
-    </div>`;
-  }
-  return `<div class="cl-item">
-    <div class="cl-label">${item.label}</div>
-    <div class="cl-btns">
-      <button class="cl-btn sel-ok ${item.status==='ok'?'on':''}" onclick="setItemStatus('${kind}', ${idx},'ok')">✓</button>
-      <button class="cl-btn sel-fail ${item.status==='fail'?'on':''}" onclick="setItemStatus('${kind}', ${idx},'fail')">✕</button>
-      <button class="cl-btn sel-na ${item.status==='na'?'on':''}" onclick="setItemStatus('${kind}', ${idx},'na')">N/A</button>
-    </div>
-  </div>`;
-}
-function itemsSource(kind){
-  return kind==='ot' ? {list:state.ots, id:currentOTId} : {list:state.checklists, id:currentChecklistId};
-}
-function renderOTDetailChecklist(){
-  const o = state.ots.find(x=>x.id===currentOTId);
-  document.getElementById('otd-checklist').innerHTML = o.checklist.map((it,i)=>clBtnHTML(it,i,'ot')).join('');
-}
-function renderChecklistDetailItems(){
-  const o = state.checklists.find(x=>x.id===currentChecklistId);
-  document.getElementById('cld-checklist').innerHTML = o.checklist.map((it,i)=>clBtnHTML(it,i,'cl')).join('');
-}
-function setItemStatus(kind, idx, val){
-  const {list, id} = itemsSource(kind);
-  const o = list.find(x=>x.id===id);
-  o.checklist[idx].status = o.checklist[idx].status===val ? null : val;
-  db.collection(kind==='ot' ? 'ots' : 'checklists').doc(id).update({checklist:o.checklist})
-    .catch(err=>toast('Error: '+err.message));
-  kind==='ot' ? renderOTDetailChecklist() : renderChecklistDetailItems();
-}
-const _valueDebounce = {};
-function setItemValue(kind, idx, val){
-  const {list, id} = itemsSource(kind);
-  const o = list.find(x=>x.id===id);
-  o.checklist[idx].note = val;
-  o.checklist[idx].status = val.trim()!=='' ? 'filled' : null;
-  const key = kind+'-'+id;
-  clearTimeout(_valueDebounce[key]);
-  _valueDebounce[key] = setTimeout(()=>{
-    db.collection(kind==='ot' ? 'ots' : 'checklists').doc(id).update({checklist:o.checklist})
-      .catch(err=>toast('Error: '+err.message));
-  }, 500);
-}
-function setOTStatus(val){
-  const o = state.ots.find(x=>x.id===currentOTId);
-  o.status = val;
-  if(val==='Cerrada' && !o.closed) o.closed = Date.now();
-  if(val!=='Cerrada') o.closed = null;
-  db.collection('ots').doc(currentOTId).update({status:o.status, closed:o.closed})
-    .catch(err=>toast('Error: '+err.message));
-  document.querySelectorAll('#otd-status-seg button').forEach(b=>b.classList.toggle('on', b.dataset.v===val));
-}
-function fmtDateTime(ts){
-  const d = new Date(ts);
-  const dateStr = d.toLocaleDateString('es-MX', {day:'2-digit', month:'short', year:'numeric'});
-  const timeStr = d.toLocaleTimeString('es-MX', {hour:'2-digit', minute:'2-digit'});
-  return `${dateStr} · ${timeStr}`;
-}
-function openOTDetail(id){
-  currentOTId = id;
-  const o = state.ots.find(x=>x.id===id);
-  const meta = `${o.area||'—'} · ${o.machinery||'—'}${o.equipoId?' · '+o.equipoId:''}`;
-  document.getElementById('otd-title').textContent = o.title;
-  document.getElementById('otd-datetime').textContent = fmtDateTime(o.created);
-  document.getElementById('otd-meta').textContent = `${meta} · ${o.workType||''} · Prioridad ${o.priority} · ${o.assigned||'Sin asignar'}`;
-  document.querySelectorAll('#otd-status-seg button').forEach(b=>b.classList.toggle('on', b.dataset.v===o.status));
-  document.getElementById('otd-notes').value = o.notes||'';
-  renderOTDetailChecklist();
-  openOverlay('overlay-ot-detail');
-}
-function saveOTDetail(){
-  const notes = document.getElementById('otd-notes').value.trim();
-  db.collection('ots').doc(currentOTId).update({notes})
-    .then(()=>toast('Cambios guardados'))
-    .catch(err=>toast('Error: '+err.message));
-  closeOverlay('overlay-ot-detail');
-}
-function editOTFromDetail(){
-  const o = state.ots.find(x=>x.id===currentOTId);
-  closeOverlay('overlay-ot-detail');
-  editOT(o);
-}
-
 function openChecklistDetail(id){
   currentChecklistId = id;
   const o = state.checklists.find(x=>x.id===id);
   if(!o) return;
   const meta = `${o.area||'—'} · ${o.machinery||'—'}${o.equipoId?' · '+o.equipoId:''}`;
-  document.getElementById('cld-title').textContent = `Checklist · ${o.machinery||''}`;
-  document.getElementById('cld-meta').textContent = `${meta} · ${o.assigned||'Sin asignar'}`;
-  document.getElementById('cld-datetime').textContent = fmtDateTime(o.created);
-  document.getElementById('cld-notes').value = o.notes||'';
+  setText('cld-title', `Checklist · ${o.machinery||''}`);
+  setText('cld-meta', `${meta} · ${o.assigned||'Sin asignar'}`);
+  setText('cld-datetime', fmtDateTime(o.created));
+  setVal('cld-notes', o.notes||'');
+  updateChecklistDetailLockState(o);
   renderChecklistDetailItems();
   openOverlay('overlay-checklist-detail');
 }
+function updateChecklistDetailLockState(o){
+  const isLocked = !!o.locked;
+  document.getElementById('cld-checklist').classList.toggle('locked', isLocked);
+  document.getElementById('cld-notes').disabled = isLocked;
+  document.getElementById('cld-save-actions').style.display = isLocked ? 'none' : '';
+}
 function saveChecklistDetail(){
-  const notes = document.getElementById('cld-notes').value.trim();
+  if(!dbReady()) return;
+  const o = state.checklists.find(x=>x.id===currentChecklistId);
+  if(o.locked){ toast('Este checklist ya está en el historial, no se puede editar'); return; }
+  const notes = valTrim('cld-notes');
   db.collection('checklists').doc(currentChecklistId).update({notes})
+    .then(()=>toast('Cambios guardados'))
     .catch(err=>toast('Error: '+err.message));
+  closeOverlay('overlay-checklist-detail');
+}
+function closeChecklistDetail(){
+  const o = state.checklists.find(x=>x.id===currentChecklistId);
+  if(o && !o.locked){
+    o.locked = true; // pasa al historial: queda bloqueado desde ahora
+    db.collection('checklists').doc(currentChecklistId).update({locked:true})
+      .catch(err=>toast('Error: '+err.message));
+  }
   closeOverlay('overlay-checklist-detail');
 }
 
@@ -1239,9 +1400,60 @@ function renderChecklistLog(){
     : list.map(checklistLogCardHTML).join('');
 }
 
+/* ============ Puntos de revisión del checklist (propio, no se comparte con OTs) ============ */
+let currentChecklistId = null;
+function clChecklistItemHTML(item, idx){
+  if(item.isValue){
+    return `<div class="cl-item">
+      <div class="cl-label">${item.label}</div>
+      <div class="cl-value">
+        <input type="number" step="any" inputmode="decimal" class="cl-value-input" value="${item.note||''}" placeholder="0" oninput="setClItemValue(${idx}, this.value)">
+        <span class="cl-unit">${item.unit||''}</span>
+      </div>
+    </div>`;
+  }
+  return `<div class="cl-item">
+    <div class="cl-label">${item.label}</div>
+    <div class="cl-btns">
+      <button class="cl-btn sel-ok ${item.status==='ok'?'on':''}" onclick="setClItemStatus(${idx},'ok')">✓</button>
+      <button class="cl-btn sel-fail ${item.status==='fail'?'on':''}" onclick="setClItemStatus(${idx},'fail')">✕</button>
+      <button class="cl-btn sel-na ${item.status==='na'?'on':''}" onclick="setClItemStatus(${idx},'na')">N/A</button>
+    </div>
+  </div>`;
+}
+function renderChecklistDetailItems(){
+  const o = state.checklists.find(x=>x.id===currentChecklistId);
+  document.getElementById('cld-checklist').innerHTML = o.checklist.map((it,i)=>clChecklistItemHTML(it,i)).join('');
+}
+function setClItemStatus(idx, val){
+  if(!dbReady()) return;
+  const o = state.checklists.find(x=>x.id===currentChecklistId);
+  if(o.locked){ toast('Este checklist ya está en el historial, no se puede editar'); return; }
+  o.checklist[idx].status = o.checklist[idx].status===val ? null : val;
+  db.collection('checklists').doc(currentChecklistId).update({checklist:o.checklist})
+    .catch(err=>toast('Error: '+err.message));
+  renderChecklistDetailItems();
+}
+const _clValueDebounce = {};
+function setClItemValue(idx, val){
+  if(!dbReady()) return;
+  const o = state.checklists.find(x=>x.id===currentChecklistId);
+  if(o.locked){ toast('Este checklist ya está en el historial, no se puede editar'); return; }
+  o.checklist[idx].note = val;
+  o.checklist[idx].status = val.trim()!=='' ? 'filled' : null;
+  clearTimeout(_clValueDebounce[currentChecklistId]);
+  _clValueDebounce[currentChecklistId] = setTimeout(()=>{
+    db.collection('checklists').doc(currentChecklistId).update({checklist:o.checklist})
+      .catch(err=>toast('Error: '+err.message));
+  }, 500);
+}
+
+
 /* =======================================================
-   AJUSTES
+   AJUSTES.JS — pantalla de Ajustes (tema, exportar, borrar)
+   Depende de core.js.
    ======================================================= */
+
 function exportData(){
   const blob = new Blob([JSON.stringify(state, null, 2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
@@ -1251,6 +1463,7 @@ function exportData(){
   toast('Respaldo descargado');
 }
 function confirmReset(){
+  if(!dbReady()) return;
   if(confirm('¿Borrar todos los datos guardados en la nube (inventario, equipos, OTs y checklists)? Esta acción no se puede deshacer.')){
     toast('Borrando datos...');
     const collections = ['items','equipos','ots','checklists','moves'];
@@ -1275,22 +1488,27 @@ function initTheme(){
   setTheme(saved);
 }
 
+
 /* =======================================================
-   AUTENTICACIÓN
+   AUTH.JS — inicio/cierre de sesión
+   Depende de core.js, nav.js y de que TODAS las funciones
+   render*() de cada pestaña ya estén cargadas (applySession
+   las llama al iniciar sesión). Cárgalo después de las pestañas.
    ======================================================= */
+
 function doLogin(){
-  const u = document.getElementById('login-user').value.trim();
-  const p = document.getElementById('login-pass').value;
+  const u = valTrim('login-user');
+  const p = val('login-pass');
   const match = Object.values(USERS).find(cfg => cfg.user === u && cfg.pass === p);
   if(match){
     currentSession = {user:match.user, role:match.role, label:match.label, title:match.title};
     localStorage.setItem(SESSION_KEY, JSON.stringify(currentSession));
-    document.getElementById('login-error').textContent = '';
-    document.getElementById('login-user').value = '';
-    document.getElementById('login-pass').value = '';
+    setText('login-error', '');
+    setVal('login-user', '');
+    setVal('login-pass', '');
     applySession();
   } else {
-    document.getElementById('login-error').textContent = 'Usuario o contraseña incorrectos';
+    setText('login-error', 'Usuario o contraseña incorrectos');
   }
 }
 function doLogout(){
@@ -1304,8 +1522,8 @@ function applySession(){
   document.body.classList.remove('role-admin','role-user','role-pdm');
   document.body.classList.add('logged-in','role-'+currentSession.role);
   document.getElementById('login-screen').classList.add('hidden');
-  document.getElementById('session-user').textContent = currentSession.user;
-  document.getElementById('session-role').textContent = currentSession.title || currentSession.label;
+  setText('session-user', currentSession.user);
+  setText('session-role', currentSession.title || currentSession.label);
   startFirestoreSync();
   renderInicio(); renderInventario(); renderEquipos(); renderOTs(); renderChecklistLog();
   goScreen(currentSession.role==='pdm' ? 'ots' : 'inicio');
@@ -1320,13 +1538,16 @@ function initSession(){
   }
 }
 
+
 /* =======================================================
-   INIT
+   MAIN.JS — arranque de la app. Debe ser el ÚLTIMO script
+   cargado: llama funciones definidas en todos los demás archivos.
    ======================================================= */
-persist();
+
 initTheme();
 renderInicio();
 initSession();
+
 </script>
 </body>
 </html>
