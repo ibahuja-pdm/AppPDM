@@ -1202,7 +1202,7 @@ function otCardHTML(o){
         ${o.equipoEstado==='Falla Crítica'?'<span class="badge eq-falla">FALLA CRÍTICA</span>':o.equipoEstado==='Detenido'?'<span class="badge eq-detenido">DETENIDO</span>':''}
         ${o.workType?`<span class="badge">${o.workType}</span>`:''}
       </div>
-      <div class="desc">${meta} · ${o.assigned||'Sin asignar'} · ${fmtDateTime(o.created)}</div>
+      <div class="desc">${meta} · ${o.assigned||'Sin asignar'} · ${fmtDateTime(o.created)}${o.createdBy?' · Creó: '+o.createdBy:''}</div>
     </div>
     ${CHEVRON}
   </div>`;
@@ -1248,6 +1248,7 @@ function saveOT(){
   } else {
     promise = db.collection('ots').doc(uid()).set({workType, area, machinery, equipoId, equipoEstado, title, priority:val('ot-priority'), status:'Abierta',
       assigned:valTrim('ot-assigned'), created:Date.now(),
+      createdBy: currentSession.title || currentSession.label,
       due:'', notes:valTrim('ot-notes'),
       desc:'', causa:'', horaInicio:'', horaFin:'', tecnico:''});
   }
@@ -1272,7 +1273,7 @@ function openOTDetail(id){
   const o = state.ots.find(x=>x.id===id);
   const meta = `${o.area||'—'} · ${o.machinery||'—'}${o.equipoId?' · '+o.equipoId:''}${o.equipoEstado?' · Equipo: '+o.equipoEstado:''}`;
   setText('otd-title', o.title);
-  setText('otd-meta', `${meta} · ${o.workType||''} · Prioridad ${o.priority} · ${o.assigned||'Sin asignar'}`);
+  setText('otd-meta', `${meta} · ${o.workType||''} · Prioridad ${o.priority} · ${o.assigned||'Sin asignar'}${o.createdBy?' · Creó: '+o.createdBy:''}`);
   otHighlightStatusSeg(o.status);
   setVal('otd-desc', o.desc||'');
   setVal('otd-causa', o.causa||'');
