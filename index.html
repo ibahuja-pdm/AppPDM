@@ -6,6 +6,7 @@
 <title>PDM · Mantenimiento</title>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
   :root{
     --bg:#000000;
@@ -80,6 +81,8 @@
     border-radius:8px; flex-shrink:0; background:var(--pill); color:var(--text);}
   .badge.priority-alta{background:#3A2020; color:#FF8A80;}
   .badge.priority-media{background:#3A3420; color:#FFD180;}
+  .badge.eq-falla{background:#3A2020; color:#FF8A80;}
+  .badge.eq-detenido{background:#3A3420; color:#FFD180;}
   .badge.status-abierta{background:#2C2C2E; color:#F5F5F7;}
   .badge.status-proceso{background:#20303A; color:#8ECBFF;}
   .badge.status-cerrada{background:#1E2E22; color:#8FE3A0;}
@@ -158,7 +161,6 @@
 
   .detail-qty{text-align:center; margin:4px 0 20px;}
   .detail-qty .num{font-size:24px; font-weight:700; line-height:1;}
-  .detail-qty .unit{font-size:14px; color:var(--text-dim); margin-top:4px;}
 
   .toast{position:fixed; bottom:100px; left:50%; transform:translateX(-50%); background:var(--card-2);
     color:var(--text); padding:11px 18px; border-radius:24px; font-size:13.5px; font-weight:600; z-index:60;
@@ -226,8 +228,6 @@ body.role-user .navbtn[data-screen="equipos"] {display:none;}
 
 </style>
 </head>
-<body>
-
 <body>
 
 <!-- PANTALLA DE INICIO DE SESIÓN -->
@@ -343,6 +343,11 @@ body.role-user .navbtn[data-screen="equipos"] {display:none;}
       </div>
 
       <div class="row-head"><span class="label">General</span></div>
+      <div class="card admin-only" onclick="openOTQRCode()">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v3M14 20h3M20 20v.01"/></svg></div>
+        <div class="body"><div class="title">QR para crear OT</div><div class="desc">Genera un código QR para que producción reporte fallas y cree OTs directamente.</div></div>
+        <svg class="chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+      </div>
       <div class="card" onclick="exportData()">
         <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v13M7 11l5 5 5-5"/><path d="M5 21h14"/></svg></div>
         <div class="body"><div class="title">Exportar datos</div><div class="desc">Descarga un respaldo en JSON de inventario, equipos, OTs y checklists.</div></div>
@@ -495,6 +500,13 @@ body.role-user .navbtn[data-screen="equipos"] {display:none;}
         </label>
       </div>
       <label class="field"><span>Equipo ID</span><select id="ot-equipoid"></select></label>
+      <label class="field"><span>Estado del equipo</span>
+        <select id="ot-equipo-estado">
+          <option>Operativo</option>
+          <option>Falla Crítica</option>
+          <option>Detenido</option>
+        </select>
+      </label>
       <label class="field"><span>Título / falla reportada</span>
         <select id="ot-title">
           <option>Falla mecánica</option>
@@ -559,11 +571,10 @@ body.role-user .navbtn[data-screen="equipos"] {display:none;}
       <div class="sheet-handle"></div>
       <div class="sheet-title"><span id="otd-title">—</span><span class="close" onclick="closeOverlay('overlay-ot-detail')">✕</span></div>
       <div class="sheet-sub" id="otd-meta"></div>
-      <div class="sheet-sub" id="otd-datetime" style="display:none;"></div>
 
-      <div class="seg user-only" id="otd-status-seg">
+      <div class="seg user-only pdm-only" id="otd-status-seg">
         <button data-v="Abierta" onclick="setOTStatus('Abierta')">Abierta</button>
-        <button data-v="Proceso" onclick="setOTStatus('Proceso')">Proceso</button>
+        <button data-v="Proceso" class="user-only" onclick="setOTStatus('Proceso')">Proceso</button>
       </div>
 
       <div class="user-only">
@@ -598,6 +609,20 @@ body.role-user .navbtn[data-screen="equipos"] {display:none;}
   </div>
 
   <div class="toast" id="toast"></div>
+
+  <!-- SHEET: QR para crear OT (producción) -->
+  <div class="overlay" id="overlay-ot-qr">
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title"><span>QR para crear OT</span><span class="close" onclick="closeOverlay('overlay-ot-qr')">✕</span></div>
+      <div class="sheet-sub">Producción escanea este código, inicia sesión y se abre directo el formulario de Nueva OT.</div>
+      <div style="background:#fff; border-radius:16px; padding:16px; display:flex; justify-content:center; margin-bottom:14px;">
+        <div id="ot-qr-code"></div>
+      </div>
+      <label class="field"><span>Enlace</span><input id="ot-qr-url" readonly></label>
+      <button class="btn btn-ghost" onclick="copyOTQRLink()">Copiar enlace</button>
+    </div>
+  </div>
 </div>
 
 
@@ -608,6 +633,7 @@ body.role-user .navbtn[data-screen="equipos"] {display:none;}
    ======================================================= */
 
 const SESSION_KEY = 'pdm_session_v1';
+const NEW_OT_HASH = '#nueva-ot';
 
 const USERS = {
   admin: {user:'aa', pass:'aa', role:'admin', label:'Administrador', title:'Jefe Sr de Mantenimiento'},
@@ -1145,11 +1171,20 @@ function newOTforEquipo(){
    opción del segmento de estatus dentro del detalle).
    ======================================================= */
 
-const OT_STATUSES = ['Todas','Abierta','Proceso','Cerrada'];
+const OT_STATUSES_BY_ROLE = {
+  admin: ['Abierta','Proceso','Cerrada'],
+  user: ['Abierta','Proceso'],
+  pdm: ['Abierta']
+};
+function getOTStatusOptions(){
+  return OT_STATUSES_BY_ROLE[currentSession && currentSession.role] || OT_STATUSES_BY_ROLE.admin;
+}
 let currentOTId = null;
 let activeOTStatus = 'Todas';
 function renderOTChips(){
-  document.getElementById('ot-chips').innerHTML = OT_STATUSES.map(s=>
+  const options = getOTStatusOptions();
+  if(!options.includes(activeOTStatus)) activeOTStatus = options[0];
+  document.getElementById('ot-chips').innerHTML = options.map(s=>
     `<div class="chip ${s===activeOTStatus?'active':''}" onclick="setOTFilter('${s}')">${s}</div>`).join('');
   setText('ot-status-label', activeOTStatus);
   scrollActiveChipIntoView('ot-chips');
@@ -1164,6 +1199,7 @@ function otCardHTML(o){
       <div class="title">${o.title}
         <span class="badge status-${o.status==='Abierta'?'abierta':o.status==='Proceso'?'proceso':'cerrada'}">${o.status}</span>
         ${o.priority==='Alta'?'<span class="badge priority-alta">ALTA</span>':o.priority==='Media'?'<span class="badge priority-media">MEDIA</span>':''}
+        ${o.equipoEstado==='Falla Crítica'?'<span class="badge eq-falla">FALLA CRÍTICA</span>':o.equipoEstado==='Detenido'?'<span class="badge eq-detenido">DETENIDO</span>':''}
         ${o.workType?`<span class="badge">${o.workType}</span>`:''}
       </div>
       <div class="desc">${meta} · ${o.assigned||'Sin asignar'} · ${fmtDateTime(o.created)}</div>
@@ -1188,6 +1224,7 @@ function openAddOT(prefill){
   setVal('ot-machinery', (prefill&&prefill.machinery) || 'Compresor');
   refreshEquipoIdSelect('ot', prefill&&prefill.equipoId);
   refreshAsignadoSelect('ot');
+  setVal('ot-equipo-estado', 'Operativo');
   setVal('ot-title', 'Falla mecánica');
   setVal('ot-priority', 'Media');
   setVal('ot-notes', '');
@@ -1202,13 +1239,14 @@ function saveOT(){
   const area = val('ot-area');
   const machinery = val('ot-machinery');
   const equipoId = valTrim('ot-equipoid');
+  const equipoEstado = val('ot-equipo-estado');
   let promise;
   if(id){
-    promise = db.collection('ots').doc(id).update({workType, area, machinery, equipoId, title, priority:val('ot-priority'),
+    promise = db.collection('ots').doc(id).update({workType, area, machinery, equipoId, equipoEstado, title, priority:val('ot-priority'),
       assigned:valTrim('ot-assigned'),
       notes:valTrim('ot-notes')});
   } else {
-    promise = db.collection('ots').doc(uid()).set({workType, area, machinery, equipoId, title, priority:val('ot-priority'), status:'Abierta',
+    promise = db.collection('ots').doc(uid()).set({workType, area, machinery, equipoId, equipoEstado, title, priority:val('ot-priority'), status:'Abierta',
       assigned:valTrim('ot-assigned'), created:Date.now(),
       due:'', notes:valTrim('ot-notes'),
       desc:'', causa:'', horaInicio:'', horaFin:'', tecnico:''});
@@ -1221,6 +1259,7 @@ function otHighlightStatusSeg(status){
 }
 function setOTStatus(val){
   if(!dbReady()) return;
+  if(currentSession.role==='pdm' && val!=='Abierta'){ toast('El rol PDM solo puede dejar la OT en Abierta'); return; }
   const o = state.ots.find(x=>x.id===currentOTId);
   if(o.status==='Cerrada') return; // ya está cerrada: es un estado final
   o.status = val;
@@ -1231,9 +1270,8 @@ function setOTStatus(val){
 function openOTDetail(id){
   currentOTId = id;
   const o = state.ots.find(x=>x.id===id);
-  const meta = `${o.area||'—'} · ${o.machinery||'—'}${o.equipoId?' · '+o.equipoId:''}`;
+  const meta = `${o.area||'—'} · ${o.machinery||'—'}${o.equipoId?' · '+o.equipoId:''}${o.equipoEstado?' · Equipo: '+o.equipoEstado:''}`;
   setText('otd-title', o.title);
-  setText('otd-datetime', fmtDateTime(o.created));
   setText('otd-meta', `${meta} · ${o.workType||''} · Prioridad ${o.priority} · ${o.assigned||'Sin asignar'}`);
   otHighlightStatusSeg(o.status);
   setVal('otd-desc', o.desc||'');
@@ -1462,6 +1500,26 @@ function exportData(){
   URL.revokeObjectURL(url);
   toast('Respaldo descargado');
 }
+function newOTLink(){
+  return location.origin + location.pathname + NEW_OT_HASH;
+}
+function openOTQRCode(){
+  const url = newOTLink();
+  setVal('ot-qr-url', url);
+  const box = document.getElementById('ot-qr-code');
+  box.innerHTML = '';
+  if(typeof QRCode === 'undefined'){
+    box.innerHTML = '<div style="color:#a00; font-size:13px; text-align:center; padding:20px;">No se pudo cargar el generador de QR (revisa tu conexión a internet)</div>';
+  } else {
+    new QRCode(box, {text:url, width:200, height:200, colorDark:'#000000', colorLight:'#ffffff'});
+  }
+  openOverlay('overlay-ot-qr');
+}
+function copyOTQRLink(){
+  navigator.clipboard.writeText(newOTLink())
+    .then(()=>toast('Enlace copiado'))
+    .catch(()=>toast('No se pudo copiar el enlace'));
+}
 function confirmReset(){
   if(!dbReady()) return;
   if(confirm('¿Borrar todos los datos guardados en la nube (inventario, equipos, OTs y checklists)? Esta acción no se puede deshacer.')){
@@ -1526,7 +1584,13 @@ function applySession(){
   setText('session-role', currentSession.title || currentSession.label);
   startFirestoreSync();
   renderInicio(); renderInventario(); renderEquipos(); renderOTs(); renderChecklistLog();
-  goScreen(currentSession.role==='pdm' ? 'ots' : 'inicio');
+  if(location.hash === NEW_OT_HASH){
+    history.replaceState(null, '', location.pathname + location.search);
+    goScreen('ots');
+    openAddOT();
+  } else {
+    goScreen(currentSession.role==='pdm' ? 'ots' : 'inicio');
+  }
 }
 function initSession(){
   const saved = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
