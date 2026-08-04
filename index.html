@@ -197,9 +197,7 @@ body.role-admin div.seg.user-only {display:flex;}
 
 /* Permisos PDM */
 body.role-pdm button.pdm-only{display:inline-block;}
-body.role-pdm div.pdm-only:not(.seg):not(.card){display:block;}
 body.role-pdm div.seg.pdm-only{display:flex;}
-body.role-pdm div.card.pdm-only{display:flex;}
 
 /* Movimientos de inventario (entrada/salida): solo admin y usuario pueden registrar */
 body.role-user div.salida-only:not(.seg),
@@ -487,6 +485,7 @@ body.role-user .navbtn[data-screen="equipos"] {display:none;}
     <div class="sheet">
       <div class="sheet-handle"></div>
       <div class="sheet-title"><span id="ot-form-title">Nueva orden de trabajo</span><span class="close" onclick="closeOverlay('overlay-ot')">✕</span></div>
+      <div class="sheet-sub" id="ot-created-by" style="display:none;"></div>
       <input type="hidden" id="ot-id">
       <label class="field"><span>Tipo de trabajo</span>
         <select id="ot-worktype"><option>Preventivo</option><option>Correctivo</option><option>Seguridad</option></select>
@@ -575,6 +574,7 @@ body.role-user .navbtn[data-screen="equipos"] {display:none;}
       <div class="seg user-only pdm-only" id="otd-status-seg">
         <button data-v="Abierta" onclick="setOTStatus('Abierta')">Abierta</button>
         <button data-v="Proceso" class="user-only" onclick="setOTStatus('Proceso')">Proceso</button>
+        <button class="admin-only" onclick="editCurrentOT()">Editar OT</button>
       </div>
 
       <div class="user-only">
@@ -1218,6 +1218,7 @@ function renderOTs(){
 function openAddOT(prefill){
   setText('ot-form-title', 'Nueva orden de trabajo');
   setText('ot-save-btn', 'Crear OT');
+  document.getElementById('ot-created-by').style.display = 'none';
   setVal('ot-id', '');
   setVal('ot-worktype', 'Preventivo');
   setVal('ot-area', (prefill&&prefill.area) || 'Proveedor');
@@ -1228,6 +1229,29 @@ function openAddOT(prefill){
   setVal('ot-title', 'Falla mecánica');
   setVal('ot-priority', 'Media');
   setVal('ot-notes', '');
+  openOverlay('overlay-ot');
+}
+function openEditOT(o){
+  closeOverlay('overlay-ot-detail');
+  setText('ot-form-title', 'Editar orden de trabajo');
+  setText('ot-save-btn', 'Guardar cambios');
+  setVal('ot-id', o.id);
+  setVal('ot-worktype', o.workType || 'Preventivo');
+  setVal('ot-area', o.area || 'Proveedor');
+  setVal('ot-machinery', o.machinery || 'Compresor');
+  refreshEquipoIdSelect('ot', o.equipoId);
+  refreshAsignadoSelect('ot', o.assigned);
+  setVal('ot-equipo-estado', o.equipoEstado || 'Operativo');
+  setVal('ot-title', o.title || 'Falla mecánica');
+  setVal('ot-priority', o.priority || 'Media');
+  setVal('ot-notes', o.notes || '');
+  const createdInfo = document.getElementById('ot-created-by');
+  if(o.createdBy){
+    createdInfo.textContent = `Creada por ${o.createdBy} · ${fmtDateTime(o.created)}`;
+    createdInfo.style.display = '';
+  } else {
+    createdInfo.style.display = 'none';
+  }
   openOverlay('overlay-ot');
 }
 function saveOT(){
@@ -1284,12 +1308,17 @@ function openOTDetail(id){
   updateOTDetailLockState(o);
   openOverlay('overlay-ot-detail');
 }
+function editCurrentOT(){
+  const o = state.ots.find(x=>x.id===currentOTId);
+  if(!o) return;
+  openEditOT(o);
+}
 const OTD_LOCKABLE_FIELDS = ['otd-desc','otd-causa','otd-hora-inicio-h','otd-hora-inicio-m','otd-hora-fin-h','otd-hora-fin-m','otd-tecnico','otd-notes'];
 function updateOTDetailLockState(o){
   const isClosed = o.status==='Cerrada';
   OTD_LOCKABLE_FIELDS.forEach(id=>{ document.getElementById(id).disabled = isClosed; });
   document.getElementById('otd-edit-actions').style.display = isClosed ? 'none' : '';
-  document.querySelectorAll('#otd-status-seg button').forEach(b=>{ b.disabled = isClosed; });
+  document.querySelectorAll('#otd-status-seg button[data-v]').forEach(b=>{ b.disabled = isClosed; });
 }
 
 /* ============ Casillas HH / MM (hora de inicio y finalizado, siempre 24h) ============ */
