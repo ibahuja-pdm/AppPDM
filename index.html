@@ -55,12 +55,14 @@
   .sticky-head{position:sticky; top:0; background:var(--bg); z-index:5;}
   .row-head .label{font-size:22px; font-weight:700;}
   .row-head .label.sm{font-size:17px;}
-  .pill-btn{background:var(--pill); color:var(--text); border:none; border-radius:20px; padding:10px 16px;
+  .pill-btn{background:var(--pill); color:var(--text); border:none; border-radius:20px; padding:12px 18px;
+    min-height:44px; box-sizing:border-box;
     font-size:14.5px; font-weight:600; cursor:pointer;}
 
   .chip-row{display:flex; gap:8px; overflow-x:auto; padding:0 2px 16px; scrollbar-width:none;}
   .chip-row::-webkit-scrollbar{display:none;}
-  .chip{flex-shrink:0; padding:8px 15px; border-radius:18px; background:var(--card); color:var(--text-dim);
+  .chip{flex-shrink:0; padding:11px 16px; min-height:44px; box-sizing:border-box; display:inline-flex; align-items:center;
+    border-radius:18px; background:var(--card); color:var(--text-dim);
     font-size:13.5px; font-weight:600; cursor:pointer; white-space:nowrap;}
   .chip.active{background:var(--text); color:var(--on-accent);}
 
@@ -113,7 +115,8 @@
   @keyframes slideUp{from{transform:translateY(30px); opacity:0;} to{transform:translateY(0); opacity:1;}}
   .sheet-handle{width:36px; height:4px; background:var(--handle); border-radius:2px; margin:8px auto 18px;}
   .sheet-title{font-size:21px; font-weight:700; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center;}
-  .sheet-title .close{color:var(--text-faint); font-size:22px; cursor:pointer; line-height:1;}
+  .sheet-title .close{color:var(--text-faint); font-size:20px; cursor:pointer; line-height:1;
+    width:44px; height:44px; margin:-10px -10px -10px 0; display:flex; align-items:center; justify-content:center;}
   .sheet-sub{color:var(--text-dim); font-size:13.5px; margin:-10px 0 18px;}
 
   label.field{display:block; margin-bottom:14px;}
@@ -131,16 +134,25 @@
   .img-placeholder{width:84px; height:84px; border-radius:14px; background:var(--card-2); color:var(--text-faint);
     display:flex; align-items:center; justify-content:center; border:1.5px dashed var(--divider);}
   .img-picker input[type=file]{position:absolute; inset:0; opacity:0; cursor:pointer;}
-  .img-remove{position:absolute; top:-6px; right:-6px; width:22px; height:22px; border-radius:50%; border:none;
-    background:var(--card-2); color:var(--text); font-size:12px; cursor:pointer; z-index:2;}
+  .img-remove{position:absolute; top:-8px; right:-8px; width:32px; height:32px; border-radius:50%; border:none;
+    background:var(--card-2); color:var(--text); font-size:13px; cursor:pointer; z-index:2;
+    display:flex; align-items:center; justify-content:center;}
 
   .btn{width:100%; padding:15px; border-radius:14px; border:none; font-size:16px; font-weight:700; cursor:pointer;}
   .btn-primary{background:var(--text); color:var(--on-accent);}
   .btn-ghost{background:var(--card-2); color:var(--text); margin-top:10px;}
+  .btn-danger{background:#FF453A; color:#FFFFFF;}
 
-  .seg{display:flex; gap:8px; margin-bottom:16px;}
-  .seg button{flex:1; padding:11px; border-radius:12px; border:none; background:var(--card-2); color:var(--text-dim);
-    font-weight:700; font-size:14px; cursor:pointer;}
+  .confirm-icon{width:52px; height:52px; border-radius:50%; background:#3A2020; color:#FF8A80;
+    display:flex; align-items:center; justify-content:center; margin:4px auto 14px;}
+  .confirm-title{font-size:19px; font-weight:700; text-align:center; margin-bottom:6px;}
+  .confirm-msg{font-size:14.5px; color:var(--text-dim); text-align:center; line-height:1.4; margin-bottom:22px;}
+  .confirm-actions{display:flex; gap:10px;}
+  .confirm-actions .btn{width:auto; flex:1; margin-top:0;}
+
+  .seg{display:flex; gap:10px; margin-bottom:16px;}
+  .seg button{flex:1; padding:13px 11px; min-height:44px; box-sizing:border-box; border-radius:12px; border:none;
+    background:var(--card-2); color:var(--text-dim); font-weight:700; font-size:14px; cursor:pointer;}
   .seg button.on{background:var(--text); color:var(--on-accent);}
   .seg button:disabled{opacity:.5; cursor:not-allowed;}
 
@@ -148,14 +160,14 @@
   #cld-checklist.locked{opacity:.5; pointer-events:none;}
   .cl-item:last-child{border-bottom:none;}
   .cl-item .cl-label{flex:1; font-size:15px; padding-top:2px;}
-  .cl-btns{display:flex; gap:6px; flex-shrink:0;}
-  .cl-btn{width:36px; height:36px; border-radius:10px; border:none; background:var(--card-2); color:var(--text-faint);
-    font-size:15px; font-weight:700; cursor:pointer;}
+  .cl-btns{display:flex; gap:10px; flex-shrink:0;}
+  .cl-btn{width:48px; height:48px; border-radius:12px; border:none; background:var(--card-2); color:var(--text-faint);
+    font-size:16px; font-weight:700; cursor:pointer;}
   .cl-btn.sel-ok.on{background:#1E2E22; color:#8FE3A0;}
   .cl-btn.sel-fail.on{background:#3A2020; color:#FF8A80;}
   .cl-btn.sel-na.on{background:#2C2C2E; color:#F5F5F7;}
   .cl-value{display:flex; align-items:center; gap:6px; flex-shrink:0;}
-  .cl-value-input{width:72px; background:var(--card-2); border:none; border-radius:10px; padding:9px 10px;
+  .cl-value-input{width:72px; height:48px; box-sizing:border-box; background:var(--card-2); border:none; border-radius:12px; padding:9px 10px;
     color:var(--text); font-size:15px; font-family:inherit; outline:none; text-align:right;}
   .cl-unit{font-size:13px; color:var(--text-dim); font-weight:600; min-width:26px;}
 
@@ -610,6 +622,21 @@ body.role-user .navbtn[data-screen="equipos"] {display:none;}
 
   <div class="toast" id="toast"></div>
 
+  <!-- SHEET: Confirmación genérica (acciones irreversibles: cerrar OT, borrar datos...) -->
+  <div class="overlay" id="overlay-confirm">
+    <div class="sheet" style="padding-top:24px;">
+      <div class="confirm-icon">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L14.7 3.86a2 2 0 00-3.4 0z"/></svg>
+      </div>
+      <div class="confirm-title" id="confirm-title">¿Estás seguro?</div>
+      <div class="confirm-msg" id="confirm-msg"></div>
+      <div class="confirm-actions">
+        <button class="btn btn-ghost" id="confirm-cancel-btn" onclick="closeConfirm()">Cancelar</button>
+        <button class="btn btn-danger" id="confirm-ok-btn">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
   <!-- SHEET: QR para crear OT (producción) -->
   <div class="overlay" id="overlay-ot-qr">
     <div class="sheet">
@@ -648,7 +675,7 @@ const ITEM_ICONS = {
   'Filtros': '<path d="M4 5h16l-6 8v6l-4 2v-8L4 5z"/>',
   'Lubricantes': '<path d="M12 3s6 6.5 6 11a6 6 0 11-12 0c0-4.5 6-11 6-11z"/>',
   'Consumibles': '<path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/>',
-  'Herramientas': '<path d="M14.7 6.3a4 4 0 00-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 005.4-5.4l-2.6 2.6-2-2 2.6-2.6z"/>',
+  'Herramientas': '<path d="M14.7 6.3a2.5 2.5 0 01-3 3L4 17v3h3l7.7-7.7a2.5 2.5 0 013-3l1.3-1.3a4 4 0 00-5-1.7L15 8"/>',
   'EPP': '<path d="M12 3l7 3v6c0 4.5-3 8-7 9-4-1-7-4.5-7-9V6l7-3z"/>',
   'Otro': '<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>'
 };
@@ -777,6 +804,13 @@ function uid(){ return 'x'+Math.random().toString(36).slice(2,9); }
 
 function svgIcon(inner){ return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`; }
 
+/* Escapa texto libre (nombres, notas, SKU...) antes de insertarlo con innerHTML,
+   para que caracteres como < > " & no rompan el marcado ni permitan inyectar HTML. */
+const HTML_ESCAPE_MAP = {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'};
+function escapeHtml(value){
+  return String(value==null ? '' : value).replace(/[&<>"']/g, ch => HTML_ESCAPE_MAP[ch]);
+}
+
 function scrollActiveChipIntoView(containerId){
   const container = document.getElementById(containerId);
   if(!container) return;
@@ -809,6 +843,28 @@ function onAreaChange(kind){ refreshAsignadoSelect(kind); }
 
 function closeOverlay(id){ document.getElementById(id).classList.remove('open'); }
 function openOverlay(id){ document.getElementById(id).classList.add('open'); }
+
+/* Modal de confirmación genérico para acciones irreversibles (cerrar OT, borrar
+   datos...). Sustituye a confirm()/alert() nativos para mantener el estilo de la app. */
+let _confirmPendingAction = null;
+function openConfirm(title, msg, confirmLabel, onConfirm){
+  setText('confirm-title', title);
+  const msgEl = document.getElementById('confirm-msg');
+  msgEl.textContent = msg || '';
+  msgEl.style.display = msg ? '' : 'none';
+  setText('confirm-ok-btn', confirmLabel || 'Confirmar');
+  _confirmPendingAction = onConfirm;
+  openOverlay('overlay-confirm');
+}
+function closeConfirm(){
+  _confirmPendingAction = null;
+  closeOverlay('overlay-confirm');
+}
+document.getElementById('confirm-ok-btn').onclick = function(){
+  const action = _confirmPendingAction;
+  closeConfirm();
+  if(action) action();
+};
 
 /* Helpers de formulario: leer/escribir un campo por id sin repetir
    document.getElementById(...) en cada línea de cada pantalla. */
@@ -908,8 +964,8 @@ function itemCardHTML(item){
   return `<div class="card" onclick="openItemDetail('${item.id}')">
     <div class="icon">${icon}</div>
     <div class="body">
-      <div class="title">${item.name}${low ? '<span class="badge">BAJO</span>' : ''}</div>
-      <div class="desc">${item.category} · ${item.qty} ${item.unit} en stock · ${item.sku||'sin SKU'}</div>
+      <div class="title">${escapeHtml(item.name)}${low ? '<span class="badge">BAJO</span>' : ''}</div>
+      <div class="desc">${escapeHtml(item.category)} · ${item.qty} ${escapeHtml(item.unit)} en stock · ${escapeHtml(item.sku||'sin SKU')}</div>
     </div>
     ${CHEVRON}
   </div>`;
@@ -935,7 +991,7 @@ function movesHTML(moves){
     const inner = m.type==='in' ? '<path d="M12 19V5M5 12l7-7 7 7"/>' : '<path d="M12 5v14M5 12l7 7 7-7"/>';
     return `<div class="card" style="cursor:default;">
       <div class="icon">${svgIcon(inner)}</div>
-      <div class="body"><div class="title" style="font-size:15px;">${name}</div><div class="desc">${fmtDate(m.date)}${m.note?' · '+m.note:''}</div></div>
+      <div class="body"><div class="title" style="font-size:15px;">${escapeHtml(name)}</div><div class="desc">${fmtDate(m.date)}${m.note?' · '+escapeHtml(m.note):''}</div></div>
       <div style="font-weight:700;">${m.type==='in'?'+':'-'}${m.qty}</div>
     </div>`;
   }).join('');
@@ -1056,6 +1112,7 @@ function registerMove(){
   if(currentSession.role==='user' && currentMoveType!=='out'){ toast('Solo puedes registrar salidas de material'); return; }
   const id = val('move-item-id');
   const item = state.items.find(i=>i.id===id);
+  if(!item){ toast('Este artículo ya no existe'); closeOverlay('overlay-item-detail'); return; }
   const qty = Number(val('move-qty'));
   if(!qty || qty<=0){ toast('Ingresa una cantidad válida'); return; }
   if(currentMoveType==='out' && qty > item.qty){ toast('No hay suficiente stock disponible'); return; }
@@ -1095,8 +1152,8 @@ function equipoCardHTML(e){
   return `<div class="card" onclick="openEqDetail('${e.id}')">
     <div class="icon">${svgIcon(TYPE_ICONS[e.type]||TYPE_ICONS.Otro)}</div>
     <div class="body">
-      <div class="title">${e.tag}${openOTs>0 ? `<span class="badge">${openOTs} OT abierta${openOTs>1?'s':''}</span>` : ''}</div>
-      <div class="desc">${e.name} · ${e.loc}</div>
+      <div class="title">${escapeHtml(e.tag)}${openOTs>0 ? `<span class="badge">${openOTs} OT abierta${openOTs>1?'s':''}</span>` : ''}</div>
+      <div class="desc">${escapeHtml(e.name)} · ${escapeHtml(e.loc)}</div>
     </div>
     ${CHEVRON}
   </div>`;
@@ -1145,6 +1202,7 @@ let currentEqDetailId = null;
 function openEqDetail(id){
   currentEqDetailId = id;
   const e = equipoById(id);
+  if(!e) return;
   setText('eqd-tag', e.tag);
   setText('eqd-meta', `${e.name} · ${e.loc} · Tipo ${e.type}`);
   const hist = state.ots.filter(o=>o.equipoId && o.equipoId.trim().toLowerCase()===e.tag.trim().toLowerCase()).sort((a,b)=>b.created-a.created);
@@ -1157,6 +1215,7 @@ function editEquipoFromDetail(){ closeOverlay('overlay-eq-detail'); editEquipo(e
 const EQ_TYPE_TO_MACHINERY = {UMA:'TUMA', TUMA:'TUMA', CH:'Chiller', BOMB:'Bombas'};
 function newOTforEquipo(){
   const e = equipoById(currentEqDetailId);
+  if(!e) return;
   closeOverlay('overlay-eq-detail');
   openAddOT({equipoId:e.tag, machinery:EQ_TYPE_TO_MACHINERY[e.type]});
 }
@@ -1282,19 +1341,20 @@ function saveOT(){
 function otHighlightStatusSeg(status){
   document.querySelectorAll('#otd-status-seg button').forEach(b=>b.classList.toggle('on', b.dataset.v===status));
 }
-function setOTStatus(val){
+function setOTStatus(newStatus){
   if(!dbReady()) return;
-  if(currentSession.role==='pdm' && val!=='Abierta'){ toast('El rol PDM solo puede dejar la OT en Abierta'); return; }
+  if(currentSession.role==='pdm' && newStatus!=='Abierta'){ toast('El rol PDM solo puede dejar la OT en Abierta'); return; }
   const o = state.ots.find(x=>x.id===currentOTId);
-  if(o.status==='Cerrada') return; // ya está cerrada: es un estado final
-  o.status = val;
-  db.collection('ots').doc(currentOTId).update({status:val})
+  if(!o || o.status==='Cerrada') return; // no existe o ya está cerrada: es un estado final
+  o.status = newStatus;
+  db.collection('ots').doc(currentOTId).update({status:newStatus})
     .catch(err=>toast('Error: '+err.message));
-  otHighlightStatusSeg(val);
+  otHighlightStatusSeg(newStatus);
 }
 function openOTDetail(id){
   currentOTId = id;
   const o = state.ots.find(x=>x.id===id);
+  if(!o) return;
   const meta = `${o.area||'—'} · ${o.machinery||'—'}${o.equipoId?' · '+o.equipoId:''}${o.equipoEstado?' · Equipo: '+o.equipoEstado:''}`;
   setText('otd-title', o.title);
   setText('otd-meta', `${meta} · ${o.workType||''} · Prioridad ${o.priority} · ${o.assigned||'Sin asignar'}${o.createdBy?' · Creó: '+o.createdBy:''}`);
@@ -1361,13 +1421,22 @@ function otGatherFieldsData(){
 function closeOT(){
   if(!dbReady()) return;
   const o = state.ots.find(x=>x.id===currentOTId);
-  if(o.status==='Cerrada') return; // ya está cerrada
+  if(!o || o.status==='Cerrada') return; // no existe o ya está cerrada
   const fields = otGatherFieldsData();
   if(!fields.ok) return;
-  const data = {...fields.data, status:'Cerrada'};
-  o.status = 'Cerrada';
-  Object.assign(o, fields.data);
-  db.collection('ots').doc(currentOTId).update(data)
+  // Cerrar una OT es un estado final e irreversible desde la app: pedir confirmación
+  // explícita para evitar cierres accidentales (p. ej. un toque de más en el celular).
+  openConfirm(
+    'Cerrar orden de trabajo',
+    '',
+    'Cerrar OT',
+    ()=>doCloseOT(o, fields.data)
+  );
+}
+function doCloseOT(o, fieldsData){
+  const data = {...fieldsData, status:'Cerrada'};
+  Object.assign(o, data); // refleja el cierre localmente mientras confirma Firestore
+  db.collection('ots').doc(o.id).update(data)
     .then(()=>toast('OT cerrada'))
     .catch(err=>toast('Error: '+err.message));
   updateOTDetailLockState(o);
@@ -1475,7 +1544,7 @@ function clChecklistItemHTML(item, idx){
     return `<div class="cl-item">
       <div class="cl-label">${item.label}</div>
       <div class="cl-value">
-        <input type="number" step="any" inputmode="decimal" class="cl-value-input" value="${item.note||''}" placeholder="0" oninput="setClItemValue(${idx}, this.value)">
+        <input type="number" step="any" inputmode="decimal" class="cl-value-input" value="${escapeHtml(item.note||'')}" placeholder="0" oninput="setClItemValue(${idx}, this.value)">
         <span class="cl-unit">${item.unit||''}</span>
       </div>
     </div>`;
@@ -1552,18 +1621,24 @@ function copyOTQRLink(){
 }
 function confirmReset(){
   if(!dbReady()) return;
-  if(confirm('¿Borrar todos los datos guardados en la nube (inventario, equipos, OTs y checklists)? Esta acción no se puede deshacer.')){
-    toast('Borrando datos...');
-    const collections = ['items','equipos','ots','checklists','moves'];
-    Promise.all(collections.map(name =>
-      db.collection(name).get().then(snap=>{
-        const batch = db.batch();
-        snap.docs.forEach(d=>batch.delete(d.ref));
-        return batch.commit();
-      })
-    )).then(()=>location.reload())
-      .catch(err=>toast('Error al borrar: '+err.message));
-  }
+  openConfirm(
+    'Borrar todos los datos',
+    'Se borrará todo el inventario, equipos, OTs y checklists guardados en la nube. Esta acción no se puede deshacer.',
+    'Borrar todo',
+    doConfirmReset
+  );
+}
+function doConfirmReset(){
+  toast('Borrando datos...');
+  const collections = ['items','equipos','ots','checklists','moves'];
+  Promise.all(collections.map(name =>
+    db.collection(name).get().then(snap=>{
+      const batch = db.batch();
+      snap.docs.forEach(d=>batch.delete(d.ref));
+      return batch.commit();
+    })
+  )).then(()=>location.reload())
+    .catch(err=>toast('Error al borrar: '+err.message));
 }
 
 function setTheme(mode){
