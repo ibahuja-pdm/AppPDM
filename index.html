@@ -789,26 +789,34 @@ function startFirestoreSync(){
   if(!db){ console.warn('Firestore no disponible: revisa firebaseConfig y tu conexión.'); return; }
   if(firestoreSyncStarted) return;
   firestoreSyncStarted = true;
+  // Antes estos errores solo se veían en la consola del navegador (F12) y pasaban
+  // desapercibidos, por ejemplo si las reglas de seguridad de Firestore bloquean
+  // la lectura de una colección en particular. Ahora también se muestran como
+  // aviso en pantalla para poder detectarlos sin abrir las herramientas de dev.
+  const syncError = (name, err) => {
+    console.error(name+' sync:', err);
+    toast(`No se pudo sincronizar ${name} (${err.code||err.message})`);
+  };
   db.collection('items').onSnapshot(snap=>{
     state.items = snap.docs.map(d=>({...d.data(), id:d.id}));
     renderInicio(); renderInventario();
-  }, err=>console.error('items sync:', err));
+  }, err=>syncError('items', err));
   db.collection('equipos').onSnapshot(snap=>{
     state.equipos = snap.docs.map(d=>({...d.data(), id:d.id}));
     renderEquipos();
-  }, err=>console.error('equipos sync:', err));
+  }, err=>syncError('equipos', err));
   db.collection('ots').onSnapshot(snap=>{
     state.ots = snap.docs.map(d=>({...d.data(), id:d.id}));
     renderInicio(); renderOTs(); renderEquipos();
-  }, err=>console.error('ots sync:', err));
+  }, err=>syncError('ots', err));
   db.collection('checklists').onSnapshot(snap=>{
     state.checklists = snap.docs.map(d=>({...d.data(), id:d.id}));
     renderChecklistLog();
-  }, err=>console.error('checklists sync:', err));
+  }, err=>syncError('checklists', err));
   db.collection('moves').onSnapshot(snap=>{
     state.moves = snap.docs.map(d=>({...d.data(), id:d.id}));
     renderInventario();
-  }, err=>console.error('moves sync:', err));
+  }, err=>syncError('moves', err));
 }
 
 function buildChecklist(type){
@@ -817,7 +825,13 @@ function buildChecklist(type){
     if(typeof entry === 'string') return {label:entry, status:null, note:''};
     if(entry.isSelect) return {label:entry.label, status:null, note:'', isSelect:true, options:entry.options};
     if(entry.isText) return {label:entry.label, status:null, note:'', isText:true};
-    return {label:entry.label, status:null, note:'', unit:entry.unit, isValue:true, min:entry.min, max:entry.max};
+    // Firestore rechaza (con un error síncrono, sin pasar por el .catch) cualquier
+    // campo con valor `undefined`. min/max son opcionales según la plantilla, así
+    // que solo se incluyen cuando de verdad están definidos.
+    const out = {label:entry.label, status:null, note:'', unit:entry.unit, isValue:true};
+    if(entry.min !== undefined) out.min = entry.min;
+    if(entry.max !== undefined) out.max = entry.max;
+    return out;
   });
 }
 
@@ -1520,12 +1534,14 @@ function saveChecklistDetail(){
   if(!dbReady()) return;
   const o = state.checklists.find(x=>x.id===currentChecklistId);
   if(o.locked){ toast('Este checklist ya está en el historial, no se puede editar'); return; }
+  flushClValueDebounce(); // asegura que el último campo editado (texto/número/select) se guarde
   toast('Cambios guardados');
   closeOverlay('overlay-checklist-detail');
 }
 function closeChecklistDetail(){
   const o = state.checklists.find(x=>x.id===currentChecklistId);
   if(o && !o.locked){
+    flushClValueDebounce(); // asegura que el último campo editado se guarde antes de bloquear
     o.locked = true; // pasa al historial: queda bloqueado desde ahora
     db.collection('checklists').doc(currentChecklistId).update({locked:true})
       .catch(err=>toast('Error: '+err.message));
@@ -1534,9 +1550,12 @@ function closeChecklistDetail(){
 }
 
 function checklistLogCardHTML(o){
-  const total = o.checklist.length;
-  const done = o.checklist.filter(c=>c.status).length;
-  const fails = o.checklist.filter(c=>c.status==='fail').length;
+  // Documentos malformados (sin `checklist` como array, ej. registros viejos o
+  // editados manualmente en Firestore) no deben tronar el .map() de toda la lista.
+  const chk = Array.isArray(o.checklist) ? o.checklist : [];
+  const total = chk.length;
+  const done = chk.filter(c=>c.status).length;
+  const fails = chk.filter(c=>c.status==='fail').length;
   return `<div class="card" onclick="openChecklistDetail('${o.id}')">
     <div class="icon">${svgIcon(MACHINERY_ICONS[o.machinery]||TYPE_ICONS.Otro)}</div>
     <div class="body">
@@ -1592,7 +1611,13 @@ function clChecklistItemHTML(item, idx){
 }
 function renderChecklistDetailItems(){
   const o = state.checklists.find(x=>x.id===currentChecklistId);
-  document.getElementById('cld-checklist').innerHTML = o.checklist.map((it,i)=>clChecklistItemHTML(it,i)).join('');
+  if(!o) return;
+  // Si el checklist no trae un array `checklist` válido (documento malformado),
+  // se autorepara a un array vacío en vez de tronar el render del detalle.
+  if(!Array.isArray(o.checklist)) o.checklist = [];
+  document.getElementById('cld-checklist').innerHTML = o.checklist.length===0
+    ? `<div class="empty"><div class="t">Sin puntos de revisión</div>Este checklist no tiene datos válidos</div>`
+    : o.checklist.map((it,i)=>clChecklistItemHTML(it,i)).join('');
 }
 function setClItemStatus(idx, val){
   if(!dbReady()) return;
@@ -1604,6 +1629,17 @@ function setClItemStatus(idx, val){
   renderChecklistDetailItems();
 }
 const _clValueDebounce = {};
+// Guarda inmediatamente en Firestore cualquier cambio de un campo de texto/número/
+// select que esté esperando el debounce de setClItemValue. Debe llamarse ANTES de
+// cerrar el overlay de detalle (Guardar cambios / ✕) para no perder la última
+// edición si el usuario guarda antes de que se cumplan los 500ms.
+function flushClValueDebounce(){
+  const pending = _clValueDebounce[currentChecklistId];
+  if(!pending) return;
+  clearTimeout(pending.timer);
+  delete _clValueDebounce[currentChecklistId];
+  pending.write();
+}
 // Guarda el valor de un punto de revisión. Si el punto tiene min/max definidos
 // (ej. Capacidad de carga 1-100%), el valor se ajusta al rango permitido en el
 // momento de capturarlo, no hasta guardar.
@@ -1627,11 +1663,15 @@ function setClItemValue(idx, val, el){
   }
   item.note = val;
   item.status = val.trim()!=='' ? 'filled' : null;
-  clearTimeout(_clValueDebounce[currentChecklistId]);
-  _clValueDebounce[currentChecklistId] = setTimeout(()=>{
-    db.collection('checklists').doc(currentChecklistId).update({checklist:o.checklist})
-      .catch(err=>toast('Error: '+err.message));
+  const pending = _clValueDebounce[currentChecklistId];
+  if(pending) clearTimeout(pending.timer);
+  const write = ()=> db.collection('checklists').doc(currentChecklistId).update({checklist:o.checklist})
+    .catch(err=>toast('Error: '+err.message));
+  const timer = setTimeout(()=>{
+    delete _clValueDebounce[currentChecklistId];
+    write();
   }, 500);
+  _clValueDebounce[currentChecklistId] = {timer, write};
 }
 
 
