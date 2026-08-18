@@ -9,6 +9,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
   :root{
+    --app-vh: 1vh;
     --bg:#000000;
     --card:#1C1C1E;
     --card-2:#242426;
@@ -115,7 +116,7 @@
   .overlay{position:fixed; inset:0; background:rgba(0,0,0,0.6); display:none; align-items:flex-end; z-index:50;
     max-width:480px; margin:0 auto;}
   .overlay.open{display:flex;}
-  .sheet{background:var(--sheet-bg); width:100%; max-height:90vh; overflow-y:auto; border-radius:24px 24px 0 0;
+  .sheet{background:var(--sheet-bg); width:100%; max-height:calc(90 * var(--app-vh)); overflow-y:auto; border-radius:24px 24px 0 0;
     padding:8px 20px 28px; animation:slideUp .22s ease;}
   @keyframes slideUp{from{transform:translateY(30px); opacity:0;} to{transform:translateY(0); opacity:1;}}
   .sheet-handle{width:36px; height:4px; background:var(--handle); border-radius:2px; margin:8px auto 18px;}
@@ -1811,13 +1812,16 @@ function fitAppWidth(){
   const isPortrait = h >= w;
   if(isPortrait && w > 480){
     const scale = w / 480;
+    const localH = h / scale;
     app.style.width = '480px';
-    app.style.height = (h / scale) + 'px';
+    app.style.height = localH + 'px';
     app.style.transform = 'scale(' + scale + ')';
+    document.documentElement.style.setProperty('--app-vh', (localH / 100) + 'px');
   } else {
     app.style.width = '';
     app.style.height = '';
     app.style.transform = '';
+    document.documentElement.style.setProperty('--app-vh', '1vh');
   }
 }
 window.addEventListener('resize', fitAppWidth);
