@@ -585,8 +585,6 @@ body.role-user .navbtn[data-screen="equipos"] {display:none;}
     <div class="sheet">
       <div class="sheet-handle"></div>
       <div class="sheet-title"><span id="cld-title">Checklist</span><span class="close" onclick="closeChecklistDetail()">✕</span></div>
-      <div class="sheet-sub" id="cld-meta" style="display:none"></div>
-      <div class="sheet-sub" id="cld-datetime" style="display:none"></div>
 
       <div id="cld-checklist" class="user-only"></div>
 
@@ -1538,10 +1536,7 @@ function openChecklistDetail(id){
   currentChecklistId = id;
   const o = state.checklists.find(x=>x.id===id);
   if(!o) return;
-  const meta = `${o.area||'—'} · ${o.machinery||'—'}${o.equipoId?' · '+o.equipoId:''}`;
   setText('cld-title', `Checklist · ${o.equipoId||o.machinery||''}`);
-  setText('cld-meta', `${meta} · ${o.assigned||'Sin asignar'}`);
-  setText('cld-datetime', fmtDateTime(o.created));
   updateChecklistDetailLockState(o);
   renderChecklistDetailItems();
   openOverlay('overlay-checklist-detail');
