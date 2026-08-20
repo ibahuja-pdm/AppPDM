@@ -177,6 +177,13 @@
     color:var(--text); font-size:15px; font-family:inherit; outline:none; text-align:right;}
   .cl-unit{font-size:13px; color:var(--text-dim); font-weight:600; min-width:26px;}
   .cl-item-full{flex-direction:column; align-items:stretch; gap:8px;}
+  .cl-item-pair{gap:16px;}
+  .cl-group-title{font-size:15px; color:var(--text); font-weight:400; padding:14px 0 0;}
+  .cl-group-title + .cl-item-pair{padding-top:6px;}
+  .cl-pair-col{flex:1; display:flex; flex-direction:column; gap:6px; min-width:0;}
+  .cl-pair-col .cl-label{font-size:15px;}
+  .cl-pair-col .cl-value{width:100%;}
+  .cl-pair-col .cl-value-input{width:100%; flex:1; text-align:left;}
   .cl-select{width:100%; height:48px; box-sizing:border-box; background:var(--card-2); border:none; border-radius:12px;
     padding:0 12px; color:var(--text); font-size:15px; font-family:inherit; outline:none;}
   .cl-textarea{width:100%; box-sizing:border-box; background:var(--card-2); border:none; border-radius:12px;
@@ -578,10 +585,9 @@ body.role-user .navbtn[data-screen="equipos"] {display:none;}
     <div class="sheet">
       <div class="sheet-handle"></div>
       <div class="sheet-title"><span id="cld-title">Checklist</span><span class="close" onclick="closeChecklistDetail()">✕</span></div>
-      <div class="sheet-sub" id="cld-meta"></div>
-      <div class="sheet-sub" id="cld-datetime"></div>
+      <div class="sheet-sub" id="cld-meta" style="display:none"></div>
+      <div class="sheet-sub" id="cld-datetime" style="display:none"></div>
 
-      <div class="row-head"><span class="label sm">Puntos de revisión</span></div>
       <div id="cld-checklist" class="user-only"></div>
 
       <div class="user-only">
@@ -711,10 +717,21 @@ const CHECKLIST_TEMPLATES = {
   Chiller:[
     {label:'Estado', isSelect:true, options:['Operativo','Carga parcial','Alarma activa','Falla crítica','Fuera de servicio']},
     {label:'Capacidad de carga', unit:'%', min:1, max:100},
-    {label:'Temperatura de salida', unit:'°C'},
-    {label:'Temperatura de entrada', unit:'°C'},
-    {label:'Presión de salida', unit:'psi'},
-    {label:'Presión de entrada', unit:'psi'},
+    {label:'Temperatura de entrada', unit:'°C', groupTitle:'Temperatura del agua', colLabel:'Entrada'},
+    {label:'Temperatura de salida', unit:'°C', sameLine:true, colLabel:'Salida'},
+    {label:'Presión de entrada', unit:'psi', groupTitle:'Presión del refrigerante', colLabel:'Entrada'},
+    {label:'Presión de salida', unit:'psi', sameLine:true, colLabel:'Salida'},
+    {label:'Voltaje L1', unit:'V', groupTitle:'Voltaje', colLabel:'L1'},
+    {label:'Voltaje L2', unit:'V', sameLine:true, colLabel:'L2'},
+    {label:'Voltaje L3', unit:'V', sameLine:true, colLabel:'L3'},
+    {label:'Amperaje L1', unit:'A', groupTitle:'Amperaje', colLabel:'L1'},
+    {label:'Amperaje L2', unit:'A', sameLine:true, colLabel:'L2'},
+    {label:'Amperaje L3', unit:'A', sameLine:true, colLabel:'L3'},
+    {label:'Temperatura ambiente exterior', unit:'°C'},
+    {label:'¿Falla desde la última revisión?', invert:true},
+    {label:'Vibración o ruido anormal', invert:true},
+    {label:'Fuga de refrigerante detectada', invert:true},
+    {label:'Refrigerante repuesto', unit:'kg'},
     {label:'Observaciones', isText:true}],
   Compresor:['Revisar nivel de aceite','Revisar fugas de aire','Verificar válvula de alivio','Inspeccionar filtro de admisión',
     {label:'Presión de trabajo', unit:'psi'},
@@ -825,12 +842,16 @@ function buildChecklist(type){
     if(typeof entry === 'string') return {label:entry, status:null, note:''};
     if(entry.isSelect) return {label:entry.label, status:null, note:'', isSelect:true, options:entry.options};
     if(entry.isText) return {label:entry.label, status:null, note:'', isText:true};
+    if(entry.unit===undefined) return {label:entry.label, status:null, note:'', invert:!!entry.invert};
     // Firestore rechaza (con un error síncrono, sin pasar por el .catch) cualquier
     // campo con valor `undefined`. min/max son opcionales según la plantilla, así
     // que solo se incluyen cuando de verdad están definidos.
     const out = {label:entry.label, status:null, note:'', unit:entry.unit, isValue:true};
     if(entry.min !== undefined) out.min = entry.min;
     if(entry.max !== undefined) out.max = entry.max;
+    if(entry.sameLine) out.sameLine = true;
+    if(entry.colLabel) out.colLabel = entry.colLabel;
+    if(entry.groupTitle) out.groupTitle = entry.groupTitle;
     return out;
   });
 }
@@ -1518,7 +1539,7 @@ function openChecklistDetail(id){
   const o = state.checklists.find(x=>x.id===id);
   if(!o) return;
   const meta = `${o.area||'—'} · ${o.machinery||'—'}${o.equipoId?' · '+o.equipoId:''}`;
-  setText('cld-title', `Checklist · ${o.machinery||''}`);
+  setText('cld-title', `Checklist · ${o.equipoId||o.machinery||''}`);
   setText('cld-meta', `${meta} · ${o.assigned||'Sin asignar'}`);
   setText('cld-datetime', fmtDateTime(o.created));
   updateChecklistDetailLockState(o);
@@ -1600,14 +1621,32 @@ function clChecklistItemHTML(item, idx){
       </div>
     </div>`;
   }
+  const okClass = item.invert ? 'sel-fail' : 'sel-ok';
+  const failClass = item.invert ? 'sel-ok' : 'sel-fail';
   return `<div class="cl-item">
     <div class="cl-label">${item.label}</div>
     <div class="cl-btns">
-      <button class="cl-btn sel-ok ${item.status==='ok'?'on':''}" onclick="setClItemStatus(${idx},'ok')">✓</button>
-      <button class="cl-btn sel-fail ${item.status==='fail'?'on':''}" onclick="setClItemStatus(${idx},'fail')">✕</button>
+      <button class="cl-btn ${okClass} ${item.status==='ok'?'on':''}" onclick="setClItemStatus(${idx},'ok')">SI</button>
+      <button class="cl-btn ${failClass} ${item.status==='fail'?'on':''}" onclick="setClItemStatus(${idx},'fail')">NO</button>
       <button class="cl-btn sel-na ${item.status==='na'?'on':''}" onclick="setClItemStatus(${idx},'na')">N/A</button>
     </div>
   </div>`;
+}
+function clValueColHTML(item, idx){
+  const minAttr = item.min!=null ? ` min="${item.min}"` : '';
+  const maxAttr = item.max!=null ? ` max="${item.max}"` : '';
+  return `<div class="cl-pair-col">
+    <div class="cl-label">${item.colLabel || item.label}</div>
+    <div class="cl-value">
+      <input type="number" step="any" inputmode="decimal" class="cl-value-input" value="${escapeHtml(item.note||'')}" placeholder="0"${minAttr}${maxAttr} oninput="setClItemValue(${idx}, this.value, this)">
+      <span class="cl-unit">${item.unit||''}</span>
+    </div>
+  </div>`;
+}
+function clChecklistGroupHTML(items, idxs){
+  const cols = items.map((it,k)=>clValueColHTML(it, idxs[k])).join('');
+  const title = items[0].groupTitle ? `<div class="cl-group-title">${items[0].groupTitle}</div>` : '';
+  return `${title}<div class="cl-item cl-item-pair">${cols}</div>`;
 }
 function renderChecklistDetailItems(){
   const o = state.checklists.find(x=>x.id===currentChecklistId);
@@ -1615,9 +1654,25 @@ function renderChecklistDetailItems(){
   // Si el checklist no trae un array `checklist` válido (documento malformado),
   // se autorepara a un array vacío en vez de tronar el render del detalle.
   if(!Array.isArray(o.checklist)) o.checklist = [];
-  document.getElementById('cld-checklist').innerHTML = o.checklist.length===0
+  const list = o.checklist;
+  let html = '';
+  // Un punto marcado con sameLine se agrupa con el/los punto(s) anterior(es)
+  // (isValue) en una sola fila de varias columnas, en vez de fila completa.
+  for(let i=0; i<list.length; i++){
+    const it = list[i];
+    if(it.isValue){
+      const group = [it]; const idxs = [i];
+      while(list[i+1] && list[i+1].sameLine && list[i+1].isValue){
+        i++; group.push(list[i]); idxs.push(i);
+      }
+      html += group.length>1 ? clChecklistGroupHTML(group, idxs) : clChecklistItemHTML(it, idxs[0]);
+    } else {
+      html += clChecklistItemHTML(it, i);
+    }
+  }
+  document.getElementById('cld-checklist').innerHTML = list.length===0
     ? `<div class="empty"><div class="t">Sin puntos de revisión</div>Este checklist no tiene datos válidos</div>`
-    : o.checklist.map((it,i)=>clChecklistItemHTML(it,i)).join('');
+    : html;
 }
 function setClItemStatus(idx, val){
   if(!dbReady()) return;
