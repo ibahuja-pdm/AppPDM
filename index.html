@@ -351,7 +351,7 @@ body.role-user .navbtn[data-screen="equipos"] {display:none;}
         <div class="row-head">
           <span class="label sm">Historial de checklists</span>
           <div class="row-head-actions">
-            <button class="pill-btn-ghost" onclick="exportChecklists()">Exportar</button>
+            <button class="pill-btn-ghost" onclick="exportChillerData()">Exportar</button>
             <button class="pill-btn user-only" onclick="openAddChecklist()">+ Nuevo checklist</button>
           </div>
         </div>
@@ -710,6 +710,9 @@ const TYPE_ICONS = {
   Otro:'<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>'
 };
 
+// Etiquetas de puntos "problema" (SI = malo/rojo, NO = bien/verde) usadas tanto
+// al construir checklists nuevos como para reparar en memoria los ya guardados.
+const INVERT_LABELS = ['¿Falla desde la última revisión?','Vibración o ruido anormal','Fuga de refrigerante detectada'];
 const CHECKLIST_TEMPLATES = {
   TUMA:['Revisar y/o cambiar filtros','Limpiar serpentín evaporador','Revisar bandas y poleas','Verificar lubricación de rodamientos','Revisar drenaje de condensados','Verificar amperaje del motor'],
   Chiller:[
@@ -826,6 +829,14 @@ function startFirestoreSync(){
   }, err=>syncError('ots', err));
   db.collection('checklists').onSnapshot(snap=>{
     state.checklists = snap.docs.map(d=>({...d.data(), id:d.id}));
+    // Checklists guardados antes de que existiera el campo `invert` no lo traen
+    // en Firestore. Se repara en memoria por etiqueta para que el color de los
+    // botones SI/NO y el conteo de "fallas" sean correctos también en registros
+    // viejos, sin tener que volver a abrir y guardar cada uno.
+    state.checklists.forEach(o=>{
+      if(!Array.isArray(o.checklist)) return;
+      o.checklist.forEach(it=>{ if(INVERT_LABELS.includes(it.label)) it.invert = true; });
+    });
     renderChecklistLog();
   }, err=>syncError('checklists', err));
   db.collection('moves').onSnapshot(snap=>{
@@ -1546,10 +1557,39 @@ function updateChecklistDetailLockState(o){
   document.getElementById('cld-checklist').classList.toggle('locked', isLocked);
   document.getElementById('cld-save-actions').style.display = isLocked ? 'none' : '';
 }
+// Físicamente el chiller enfría el agua: la temperatura de salida debe ser
+// menor (o igual) que la de entrada. Si no, hay un dato mal capturado.
+function chillerTempInvalid(o){
+  if(!Array.isArray(o.checklist)) return false;
+  const entrada = o.checklist.find(it=>it.label==='Temperatura de entrada');
+  const salida = o.checklist.find(it=>it.label==='Temperatura de salida');
+  if(!entrada || !salida) return false;
+  const e = parseFloat(entrada.note), s = parseFloat(salida.note);
+  if(isNaN(e) || isNaN(s)) return false;
+  return s > e;
+}
+// La presión del refrigerante baja (o se mantiene) al pasar por el evaporador,
+// igual que la temperatura del agua: salida no debe ser mayor que entrada.
+function chillerPressureInvalid(o){
+  if(!Array.isArray(o.checklist)) return false;
+  const entrada = o.checklist.find(it=>it.label==='Presión de entrada');
+  const salida = o.checklist.find(it=>it.label==='Presión de salida');
+  if(!entrada || !salida) return false;
+  const e = parseFloat(entrada.note), s = parseFloat(salida.note);
+  if(isNaN(e) || isNaN(s)) return false;
+  return s > e;
+}
+function chillerValidationError(o){
+  if(chillerTempInvalid(o)) return '⚠ Temperatura de salida no puede ser mayor que la de entrada';
+  if(chillerPressureInvalid(o)) return '⚠ Presión de salida no puede ser mayor que la de entrada';
+  return null;
+}
 function saveChecklistDetail(){
   if(!dbReady()) return;
   const o = state.checklists.find(x=>x.id===currentChecklistId);
   if(o.locked){ toast('Este checklist ya está en el historial, no se puede editar'); return; }
+  const err = chillerValidationError(o);
+  if(err){ toast(err); return; }
   flushClValueDebounce(); // asegura que el último campo editado (texto/número/select) se guarde
   toast('Cambios guardados');
   closeOverlay('overlay-checklist-detail');
@@ -1557,6 +1597,8 @@ function saveChecklistDetail(){
 function closeChecklistDetail(){
   const o = state.checklists.find(x=>x.id===currentChecklistId);
   if(o && !o.locked){
+    const err = chillerValidationError(o);
+    if(err){ toast(err); return; }
     flushClValueDebounce(); // asegura que el último campo editado se guarde antes de bloquear
     o.locked = true; // pasa al historial: queda bloqueado desde ahora
     db.collection('checklists').doc(currentChecklistId).update({locked:true})
@@ -1571,7 +1613,7 @@ function checklistLogCardHTML(o){
   const chk = Array.isArray(o.checklist) ? o.checklist : [];
   const total = chk.length;
   const done = chk.filter(c=>c.status).length;
-  const fails = chk.filter(c=>c.status==='fail').length;
+  const fails = chk.filter(c=>c.invert ? c.status==='ok' : c.status==='fail').length;
   return `<div class="card" onclick="openChecklistDetail('${o.id}')">
     <div class="icon">${svgIcon(MACHINERY_ICONS[o.machinery]||TYPE_ICONS.Otro)}</div>
     <div class="body">
@@ -1771,10 +1813,27 @@ function exportOTs(){
   downloadCSV('pdm-ots.csv', state.ots);
   toast('OTs exportadas');
 }
-function exportChecklists(){
-  if(state.checklists.length===0){ toast('No hay checklists para exportar'); return; }
-  downloadCSV('pdm-checklists.csv', state.checklists);
-  toast('Checklists exportados');
+function exportChillerData(){
+  const docs = state.checklists.filter(o=>o.machinery==='Chiller');
+  if(docs.length===0){ toast('No hay checklists de Chiller para exportar'); return; }
+  const byLabel = (chk, label)=> (Array.isArray(chk) ? chk.find(it=>it.label===label) : null)?.note || '';
+  const rows = docs.map(o=>({
+    'Fecha': fmtDateTime(o.created),
+    'ID Equipo': o.equipoId||'',
+    'Estado': byLabel(o.checklist,'Estado'),
+    'Temperatura Entrada': byLabel(o.checklist,'Temperatura de entrada'),
+    'Temperatura Salida': byLabel(o.checklist,'Temperatura de salida'),
+    'Presion de Entrada': byLabel(o.checklist,'Presión de entrada'),
+    'Presion de salida': byLabel(o.checklist,'Presión de salida'),
+    'Voltaje L1': byLabel(o.checklist,'Voltaje L1'),
+    'Voltaje L2': byLabel(o.checklist,'Voltaje L2'),
+    'Voltaje L3': byLabel(o.checklist,'Voltaje L3'),
+    'Amperaje L1': byLabel(o.checklist,'Amperaje L1'),
+    'Amperaje L2': byLabel(o.checklist,'Amperaje L2'),
+    'Amperaje L3': byLabel(o.checklist,'Amperaje L3')
+  }));
+  downloadCSV('pdm-chiller-datos.csv', rows);
+  toast('Datos de Chiller exportados');
 }
 function newOTLink(){
   return location.origin + location.pathname + NEW_OT_HASH;
@@ -1891,26 +1950,40 @@ function initSession(){
    ======================================================= */
 
 /* Auto-ajuste de ancho en formato vertical:
-   si la pantalla es más ancha que los 480px de diseño y está en
-   orientación vertical (alto >= ancho), se escala #app para que
-   ocupe todo el ancho disponible en vez de quedar centrado con
-   espacio vacío a los lados. */
+   - Teléfonos algo más anchos que los 480px de diseño (hasta
+     TABLET_BREAKPOINT): se escala #app con transform para llenar
+     el ancho, como antes.
+   - Tablets/iPad (más anchos que TABLET_BREAKPOINT): en vez de
+     escalar (lo que agranda/"estira" el texto, incluido el del
+     checklist), se ensancha el ancho REAL de #app sin transform,
+     así el layout usa más pantalla pero el tamaño de letra se
+     queda en el definido por el CSS. */
 function fitAppWidth(){
   const app = document.getElementById('app');
   if(!app) return;
+  const TABLET_BREAKPOINT = 700;
+  const TABLET_MAX_WIDTH = 640;
   const w = window.innerWidth, h = window.innerHeight;
   const isPortrait = h >= w;
-  if(isPortrait && w > 480){
+  if(isPortrait && w > 480 && w <= TABLET_BREAKPOINT){
     const scale = w / 480;
     const localH = h / scale;
+    app.style.maxWidth = '';
     app.style.width = '480px';
     app.style.height = localH + 'px';
     app.style.transform = 'scale(' + scale + ')';
     document.documentElement.style.setProperty('--app-vh', (localH / 100) + 'px');
+  } else if(isPortrait && w > TABLET_BREAKPOINT){
+    app.style.width = '';
+    app.style.height = '';
+    app.style.transform = '';
+    app.style.maxWidth = Math.min(w, TABLET_MAX_WIDTH) + 'px';
+    document.documentElement.style.setProperty('--app-vh', '1vh');
   } else {
     app.style.width = '';
     app.style.height = '';
     app.style.transform = '';
+    app.style.maxWidth = '';
     document.documentElement.style.setProperty('--app-vh', '1vh');
   }
 }
