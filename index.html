@@ -1962,7 +1962,6 @@ function fitAppWidth(){
   const app = document.getElementById('app');
   if(!app) return;
   const TABLET_BREAKPOINT = 700;
-  const TABLET_MAX_WIDTH = 640;
   const w = window.innerWidth, h = window.innerHeight;
   const isPortrait = h >= w;
   if(isPortrait && w > 480 && w <= TABLET_BREAKPOINT){
@@ -1977,7 +1976,7 @@ function fitAppWidth(){
     app.style.width = '';
     app.style.height = '';
     app.style.transform = '';
-    app.style.maxWidth = Math.min(w, TABLET_MAX_WIDTH) + 'px';
+    app.style.maxWidth = w + 'px';
     document.documentElement.style.setProperty('--app-vh', '1vh');
   } else {
     app.style.width = '';
