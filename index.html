@@ -1961,6 +1961,7 @@ function initSession(){
 function fitAppWidth(){
   const app = document.getElementById('app');
   if(!app) return;
+  const nav = document.querySelector('nav.bottomnav');
   const TABLET_BREAKPOINT = 700;
   const w = window.innerWidth, h = window.innerHeight;
   const isPortrait = h >= w;
@@ -1971,18 +1972,21 @@ function fitAppWidth(){
     app.style.width = '480px';
     app.style.height = localH + 'px';
     app.style.transform = 'scale(' + scale + ')';
+    if(nav) nav.style.maxWidth = '';
     document.documentElement.style.setProperty('--app-vh', (localH / 100) + 'px');
   } else if(isPortrait && w > TABLET_BREAKPOINT){
     app.style.width = '';
     app.style.height = '';
     app.style.transform = '';
     app.style.maxWidth = w + 'px';
+    if(nav) nav.style.maxWidth = w + 'px';
     document.documentElement.style.setProperty('--app-vh', '1vh');
   } else {
     app.style.width = '';
     app.style.height = '';
     app.style.transform = '';
     app.style.maxWidth = '';
+    if(nav) nav.style.maxWidth = '';
     document.documentElement.style.setProperty('--app-vh', '1vh');
   }
 }
