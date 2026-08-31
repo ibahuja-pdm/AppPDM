@@ -349,7 +349,7 @@ body.role-pdm .navbtn[data-screen="checklists"] {display:none;}
         <div class="row-head">
           <span class="label sm">Historial de checklists</span>
           <div class="row-head-actions">
-            <button class="pill-btn-ghost" onclick="exportChillerData()">Exportar</button>
+            <button class="pill-btn-ghost" onclick="openExportChecklistsMenu()">Exportar</button>
             <button class="pill-btn user-only" onclick="openAddChecklist()">+ Nuevo checklist</button>
           </div>
         </div>
@@ -375,6 +375,11 @@ body.role-pdm .navbtn[data-screen="checklists"] {display:none;}
       </div>
 
       <div class="row-head"><span class="label">General</span></div>
+      <div class="card admin-only" onclick="openUsersList()">
+        <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg></div>
+        <div class="body"><div class="title">Usuarios</div><div class="desc">Crea y elimina cuentas de acceso para Administrador, Técnico y PDM.</div></div>
+        <svg class="chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6l6 6-6 6"/></svg>
+      </div>
       <div class="card admin-only" onclick="goScreen('equipos')">
         <div class="icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="16" height="10" rx="1.5"/><path d="M8 20h8M12 14v6"/></svg></div>
         <div class="body"><div class="title">Equipos</div><div class="desc">Consulta y administra el catálogo de equipos (UMA, TUMA, chillers, bombas, etc.).</div></div>
@@ -627,7 +632,7 @@ body.role-pdm .navbtn[data-screen="checklists"] {display:none;}
             </div>
           </label>
         </div>
-        <label class="field"><span>Técnico que participó</span><input id="otd-tecnico" placeholder="Nombre del técnico"></label>
+        <label class="field"><span>Técnico que cierra la OT</span><input id="otd-tecnico" readonly></label>
       </div>
 
       <div class="user-only">
@@ -653,6 +658,48 @@ body.role-pdm .navbtn[data-screen="checklists"] {display:none;}
         <button class="btn btn-ghost" id="confirm-cancel-btn" onclick="closeConfirm()">Cancelar</button>
         <button class="btn btn-danger" id="confirm-ok-btn">Confirmar</button>
       </div>
+    </div>
+  </div>
+
+  <!-- SHEET: Lista de usuarios (Ajustes > Usuarios) -->
+  <div class="overlay" id="overlay-users">
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title"><span>Usuarios</span><span class="close" onclick="closeOverlay('overlay-users')">✕</span></div>
+      <button class="btn btn-primary" onclick="openAddUser()">+ Nuevo usuario</button>
+      <div class="row-head"><span class="label sm">Cuentas</span></div>
+      <div id="users-list"></div>
+    </div>
+  </div>
+
+  <!-- SHEET: Nuevo usuario -->
+  <div class="overlay" id="overlay-user-new">
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title"><span>Nuevo usuario</span><span class="close" onclick="closeOverlay('overlay-user-new')">✕</span></div>
+      <label class="field"><span>Nombre</span><input id="u-label" placeholder="Ej. Carlos Ramírez"></label>
+      <label class="field"><span>Usuario</span><input id="u-user" placeholder="Ej. carlos" autocomplete="off"></label>
+      <label class="field"><span>Contraseña</span><input id="u-pass" placeholder="Contraseña" autocomplete="new-password"></label>
+      <label class="field"><span>Rol</span>
+        <select id="u-role">
+          <option value="user">Técnico</option>
+          <option value="admin">Administrador</option>
+          <option value="pdm">PDM</option>
+        </select>
+      </label>
+      <button class="btn btn-primary" onclick="saveNewUser()">Crear usuario</button>
+    </div>
+  </div>
+
+  <!-- SHEET: Elegir tipo de maquinaria para exportar checklists -->
+  <div class="overlay" id="overlay-export-checklists">
+    <div class="sheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-title"><span>Exportar checklists</span><span class="close" onclick="closeOverlay('overlay-export-checklists')">✕</span></div>
+      <div class="sheet-sub">Elige qué tipo de maquinaria exportar (con todos sus campos)</div>
+      <button class="btn btn-primary" onclick="exportChecklistsByMachinery('Chiller')">Chiller</button>
+      <button class="btn btn-ghost" onclick="exportChecklistsByMachinery('Compresor')">Compresor</button>
+      <button class="btn btn-ghost" onclick="exportChecklistsByMachinery('TUMA')">TUMA</button>
     </div>
   </div>
 
@@ -683,9 +730,23 @@ const NEW_OT_HASH = '#nueva-ot';
 
 const USERS = {
   admin: {user:'aa', pass:'aa', role:'admin', label:'Administrador', title:'Jefe Sr de Mantenimiento'},
-  user:  {user:'bb', pass:'bb', role:'user',  label:'Usuario', title:'Técnico de Mantenimiento'},
-  pdm:   {user:'cc', pass:'cc', role:'pdm', label:'PDM', title:'Usuario PDM'}
+  pdm:   {user:'cc', pass:'cc', role:'pdm', label:'PDM', title:'Usuario PDM'},
+  // Cuentas individuales de técnico: cada una inicia sesión con su propio
+  // usuario/contraseña, así que al cerrar una OT queda registrado el nombre
+  // de quien de verdad la cerró (currentSession.label), no un campo de texto
+  // libre editable por cualquiera. Mismos nombres que TECNICOS_BY_AREA.
+  tec_jan:   {user:'jan',   pass:'jan',   role:'user', label:'Jan',   title:'Técnico de Mantenimiento'},
+  tec_pedro: {user:'pedro', pass:'pedro', role:'user', label:'Pedro', title:'Técnico de Mantenimiento'},
+  tec_silva: {user:'silva', pass:'silva', role:'user', label:'Silva', title:'Técnico de Mantenimiento'},
+  tec_chan:  {user:'chan',  pass:'chan',  role:'user', label:'Chan',  title:'Técnico de Mantenimiento'},
+  tec_sas:   {user:'sas',   pass:'sas',   role:'user', label:'SAs',   title:'Técnico de Mantenimiento'},
+  tec_bb:    {user:'bb',    pass:'bb',    role:'user', label:'BB',    title:'Técnico de Mantenimiento'}
 };
+
+// Rol -> título mostrado y etiqueta corta, usados al crear usuarios nuevos
+// desde la app (Ajustes > Usuarios) además de las cuentas de arriba.
+const ROLE_TITLES = {admin:'Administrador', user:'Técnico de Mantenimiento', pdm:'Usuario PDM'};
+const ROLE_LABELS = {admin:'Administrador', user:'Técnico', pdm:'PDM'};
 
 const THEME_KEY = 'pdm_theme';
 
@@ -731,7 +792,6 @@ const CHECKLIST_TEMPLATES = {
     {label:'¿Falla desde la última revisión?', invert:true},
     {label:'Vibración o ruido anormal', invert:true},
     {label:'Fuga de refrigerante detectada', invert:true},
-    {label:'Refrigerante repuesto', unit:'kg'},
     {label:'Observaciones', isText:true}],
   Compresor:['Revisar nivel de aceite','Revisar fugas de aire','Verificar válvula de alivio','Inspeccionar filtro de admisión',
     {label:'Presión de trabajo', unit:'psi'},
@@ -794,7 +854,7 @@ try {
   console.error('No se pudo inicializar Firebase:', err);
 }
 
-let state = { items: [], equipos: [], ots: [], moves: [], checklists: [] };
+let state = { items: [], equipos: [], ots: [], moves: [], checklists: [], users: [] };
 
 function dbReady(){
   if(!db){ toast('Sin conexión a la base de datos. Revisa tu configuración de Firebase.'); return false; }
@@ -842,6 +902,11 @@ function startFirestoreSync(){
     state.moves = snap.docs.map(d=>({...d.data(), id:d.id}));
     renderInventario();
   }, err=>syncError('moves', err));
+  // Cuentas creadas desde Ajustes > Usuarios (además de las fijas en USERS).
+  db.collection('users').onSnapshot(snap=>{
+    state.users = snap.docs.map(d=>({...d.data(), id:d.id}));
+    if(document.getElementById('overlay-users').classList.contains('open')) renderUsersList();
+  }, err=>syncError('usuarios', err));
 }
 
 function buildChecklist(type){
@@ -1329,7 +1394,7 @@ function otCardHTML(o){
         ${o.equipoEstado==='Falla Crítica'?'<span class="badge eq-falla">FALLA CRÍTICA</span>':o.equipoEstado==='Detenido'?'<span class="badge eq-detenido">DETENIDO</span>':''}
         ${o.workType?`<span class="badge">${o.workType}</span>`:''}
       </div>
-      <div class="desc">${meta} · ${o.assigned||'Sin asignar'} · ${fmtDateTime(o.created)}${o.createdBy?' · Creó: '+o.createdBy:''}</div>
+      <div class="desc">${meta} · ${o.assigned||'Sin asignar'} · ${fmtDateTime(o.created)}${o.tecnico?' · Técnico: '+escapeHtml(o.tecnico):''}${o.createdBy?' · Creó: '+o.createdBy:''}</div>
     </div>
     ${CHEVRON}
   </div>`;
@@ -1431,7 +1496,9 @@ function openOTDetail(id){
   setVal('otd-causa', o.causa||'');
   otFillTimePair('otd-hora-inicio-h', 'otd-hora-inicio-m', o.horaInicio);
   otFillTimePair('otd-hora-fin-h', 'otd-hora-fin-m', o.horaFin);
-  setVal('otd-tecnico', o.tecnico||'');
+  // Muestra el técnico ya registrado (OT cerrada) o, mientras sigue abierta,
+  // una vista previa de quién quedará como responsable si la sesión actual la cierra.
+  setVal('otd-tecnico', o.tecnico || (currentSession && currentSession.label) || '');
   setVal('otd-notes', o.notes||'');
   updateOTDetailLockState(o);
   openOverlay('overlay-ot-detail');
@@ -1482,7 +1549,6 @@ function otGatherFieldsData(){
     causa: valTrim('otd-causa'),
     horaInicio: horaInicio.value,
     horaFin: horaFin.value,
-    tecnico: valTrim('otd-tecnico'),
     notes: valTrim('otd-notes'),
   }};
 }
@@ -1492,6 +1558,9 @@ function closeOT(){
   if(!o || o.status==='Cerrada') return; // no existe o ya está cerrada
   const fields = otGatherFieldsData();
   if(!fields.ok) return;
+  // El técnico que queda registrado es quien tiene la sesión abierta al cerrar
+  // la OT, no un campo de texto libre — así el dato queda ligado a su cuenta.
+  fields.data.tecnico = currentSession.label;
   // Cerrar una OT es un estado final e irreversible desde la app: pedir confirmación
   // explícita para evitar cierres accidentales (p. ej. un toque de más en el celular).
   openConfirm(
@@ -1545,6 +1614,32 @@ function saveChecklist(){
   openChecklistDetail(newId);
   db.collection('checklists').doc(newId).set(data)
     .catch(err=>toast('Error al guardar: '+err.message));
+  if(machinery==='Chiller') autofillOutdoorTemp(newId);
+}
+// Coordenadas de Nuevo Laredo, Tamaulipas. Autorrellena "Temperatura ambiente
+// exterior" en checklists de Chiller con el clima actual (Open-Meteo, sin API
+// key). Es un dato de referencia: si falla la consulta simplemente se deja en
+// blanco para captura manual, y nunca pisa un valor que el usuario ya haya escrito.
+const NUEVO_LAREDO_COORDS = {lat:27.4863, lon:-99.5075};
+async function autofillOutdoorTemp(checklistId){
+  try{
+    const {lat, lon} = NUEVO_LAREDO_COORDS;
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m&timezone=America%2FMonterrey`;
+    const res = await fetch(url);
+    const json = await res.json();
+    const temp = json && json.current && json.current.temperature_2m;
+    if(temp===undefined || temp===null) return;
+    const o = state.checklists.find(x=>x.id===checklistId);
+    if(!o || !Array.isArray(o.checklist)) return;
+    const item = o.checklist.find(it=>it.label==='Temperatura ambiente exterior');
+    if(!item || item.note) return; // ya tiene un valor (capturado a mano mientras tanto)
+    item.note = String(Math.round(temp*10)/10);
+    db.collection('checklists').doc(checklistId).update({checklist:o.checklist})
+      .catch(err=>console.warn('No se pudo guardar la temperatura autorrellenada:', err));
+    if(currentChecklistId===checklistId) renderChecklistDetailItems();
+  } catch(err){
+    console.warn('No se pudo obtener la temperatura de Nuevo Laredo:', err);
+  }
 }
 function openChecklistDetail(id){
   currentChecklistId = id;
@@ -1816,27 +1911,34 @@ function exportOTs(){
   downloadCSV('pdm-ots.csv', state.ots);
   toast('OTs exportadas');
 }
-function exportChillerData(){
-  const docs = state.checklists.filter(o=>o.machinery==='Chiller');
-  if(docs.length===0){ toast('No hay checklists de Chiller para exportar'); return; }
-  const byLabel = (chk, label)=> (Array.isArray(chk) ? chk.find(it=>it.label===label) : null)?.note || '';
-  const rows = docs.map(o=>({
-    'Fecha': fmtDateTime(o.created),
-    'ID Equipo': o.equipoId||'',
-    'Estado': byLabel(o.checklist,'Estado'),
-    'Temperatura Entrada': byLabel(o.checklist,'Temperatura de entrada'),
-    'Temperatura Salida': byLabel(o.checklist,'Temperatura de salida'),
-    'Presion de Entrada': byLabel(o.checklist,'Presión de entrada'),
-    'Presion de salida': byLabel(o.checklist,'Presión de salida'),
-    'Voltaje L1': byLabel(o.checklist,'Voltaje L1'),
-    'Voltaje L2': byLabel(o.checklist,'Voltaje L2'),
-    'Voltaje L3': byLabel(o.checklist,'Voltaje L3'),
-    'Amperaje L1': byLabel(o.checklist,'Amperaje L1'),
-    'Amperaje L2': byLabel(o.checklist,'Amperaje L2'),
-    'Amperaje L3': byLabel(o.checklist,'Amperaje L3')
-  }));
-  downloadCSV('pdm-chiller-datos.csv', rows);
-  toast('Datos de Chiller exportados');
+// Texto legible para un punto de revisión booleano (SI/NO/N.A.) — los campos
+// con isValue/isSelect/isText usan su propio `note` en vez de este estado.
+function clStatusLabel(status){
+  if(status==='ok') return 'SI';
+  if(status==='fail') return 'NO';
+  if(status==='na') return 'N/A';
+  return '';
+}
+function openExportChecklistsMenu(){ openOverlay('overlay-export-checklists'); }
+// Exporta TODOS los campos de la plantilla del tipo de maquinaria elegido
+// (Chiller/Compresor/TUMA/etc.), uno por columna, tomando el orden y las
+// etiquetas directamente de CHECKLIST_TEMPLATES — así la exportación se
+// mantiene al día sola si la plantilla cambia, sin tocar esta función.
+function exportChecklistsByMachinery(type){
+  closeOverlay('overlay-export-checklists');
+  const docs = state.checklists.filter(o=>o.machinery===type);
+  if(docs.length===0){ toast(`No hay checklists de ${type} para exportar`); return; }
+  const tpl = buildChecklist(type); // plantilla "vacía": define columnas y su orden
+  const rows = docs.map(o=>{
+    const row = {'Fecha': fmtDateTime(o.created), 'ID Equipo': o.equipoId||'', 'Área': o.area||'', 'Asignado a': o.assigned||''};
+    tpl.forEach(field=>{
+      const it = Array.isArray(o.checklist) ? o.checklist.find(x=>x.label===field.label) : null;
+      row[field.label] = !it ? '' : (field.isValue||field.isSelect||field.isText) ? (it.note||'') : clStatusLabel(it.status);
+    });
+    return row;
+  });
+  downloadCSV(`pdm-${type.toLowerCase()}-checklists.csv`, rows);
+  toast(`Checklists de ${type} exportados`);
 }
 function newOTLink(){
   return location.origin + location.pathname + NEW_OT_HASH;
@@ -1898,20 +2000,28 @@ function initTheme(){
    las llama al iniciar sesión). Cárgalo después de las pestañas.
    ======================================================= */
 
+function loginWithAccount(match){
+  currentSession = {user:match.user, role:match.role, label:match.label, title:match.title};
+  localStorage.setItem(SESSION_KEY, JSON.stringify(currentSession));
+  setText('login-error', '');
+  setVal('login-user', '');
+  setVal('login-pass', '');
+  applySession();
+}
 function doLogin(){
   const u = valTrim('login-user');
   const p = val('login-pass');
-  const match = Object.values(USERS).find(cfg => cfg.user === u && cfg.pass === p);
-  if(match){
-    currentSession = {user:match.user, role:match.role, label:match.label, title:match.title};
-    localStorage.setItem(SESSION_KEY, JSON.stringify(currentSession));
-    setText('login-error', '');
-    setVal('login-user', '');
-    setVal('login-pass', '');
-    applySession();
-  } else {
-    setText('login-error', 'Usuario o contraseña incorrectos');
-  }
+  const staticMatch = Object.values(USERS).find(cfg => cfg.user === u && cfg.pass === p);
+  if(staticMatch){ loginWithAccount(staticMatch); return; }
+  // No es una de las cuentas fijas del código: se busca entre las creadas
+  // desde Ajustes > Usuarios (colección 'users' en Firestore).
+  if(!db){ setText('login-error', 'Usuario o contraseña incorrectos'); return; }
+  db.collection('users').where('user','==',u).where('pass','==',p).limit(1).get()
+    .then(snap=>{
+      if(!snap.empty) loginWithAccount(snap.docs[0].data());
+      else setText('login-error', 'Usuario o contraseña incorrectos');
+    })
+    .catch(()=>setText('login-error', 'Usuario o contraseña incorrectos'));
 }
 function doLogout(){
   currentSession = null;
@@ -1924,7 +2034,7 @@ function applySession(){
   document.body.classList.remove('role-admin','role-user','role-pdm');
   document.body.classList.add('logged-in','role-'+currentSession.role);
   document.getElementById('login-screen').classList.add('hidden');
-  setText('session-user', currentSession.user);
+  setText('session-user', currentSession.label);
   setText('session-role', currentSession.title || currentSession.label);
   startFirestoreSync();
   renderInicio(); renderInventario(); renderEquipos(); renderOTs(); renderChecklistLog();
@@ -1938,12 +2048,86 @@ function applySession(){
 }
 function initSession(){
   const saved = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
-  if(saved && USERS[saved.role] && USERS[saved.role].user === saved.user){
-    currentSession = {...saved, title: saved.title || USERS[saved.role].title};
+  if(!saved){ document.getElementById('login-screen').classList.remove('hidden'); return; }
+  const staticMatch = Object.values(USERS).find(cfg => cfg.user===saved.user && cfg.role===saved.role);
+  if(staticMatch){
+    currentSession = {...saved, title: saved.title || staticMatch.title};
     applySession();
+    return;
+  }
+  // No es una cuenta fija: se confirma contra Firestore antes de restaurar la
+  // sesión guardada (por si el usuario fue eliminado desde otro dispositivo).
+  if(db){
+    db.collection('users').where('user','==',saved.user).where('role','==',saved.role).limit(1).get()
+      .then(snap=>{
+        if(!snap.empty){ currentSession = {...saved}; applySession(); }
+        else { localStorage.removeItem(SESSION_KEY); document.getElementById('login-screen').classList.remove('hidden'); }
+      })
+      .catch(()=>document.getElementById('login-screen').classList.remove('hidden'));
   } else {
     document.getElementById('login-screen').classList.remove('hidden');
   }
+}
+
+
+/* =======================================================
+   USERS.JS — Ajustes > Usuarios: crear y eliminar cuentas
+   de acceso (admin/técnico/pdm) desde la propia app, además
+   de las fijas en USERS. Depende de auth.js y core.js.
+   ======================================================= */
+
+// Cuentas fijas del código + cuentas creadas desde la app, juntas para
+// validar login y evitar usuarios duplicados.
+function allAccounts(){ return [...Object.values(USERS), ...state.users]; }
+
+function userCardHTML(u, isStatic){
+  return `<div class="card" style="cursor:default;">
+    <div class="icon">${svgIcon('<path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>')}</div>
+    <div class="body">
+      <div class="title">${escapeHtml(u.label)} <span class="badge">${ROLE_LABELS[u.role]||u.role}</span></div>
+      <div class="desc">Usuario: ${escapeHtml(u.user)}${isStatic?' · Predefinido':''}</div>
+    </div>
+    ${isStatic ? '' : `<button class="pill-btn-ghost" onclick="confirmDeleteUser('${u.id}')">Eliminar</button>`}
+  </div>`;
+}
+function renderUsersList(){
+  const staticHtml = Object.values(USERS).map(u=>userCardHTML(u, true)).join('');
+  const dynamicHtml = state.users.slice().sort((a,b)=>(a.label||'').localeCompare(b.label||''))
+    .map(u=>userCardHTML(u, false)).join('');
+  document.getElementById('users-list').innerHTML = staticHtml + dynamicHtml;
+}
+function openUsersList(){ renderUsersList(); openOverlay('overlay-users'); }
+function openAddUser(){
+  setVal('u-label', ''); setVal('u-user', ''); setVal('u-pass', ''); setVal('u-role', 'user');
+  openOverlay('overlay-user-new');
+}
+function saveNewUser(){
+  if(!dbReady()) return;
+  const label = valTrim('u-label');
+  const user = valTrim('u-user').toLowerCase();
+  const pass = valTrim('u-pass');
+  const role = val('u-role');
+  if(!label || !user || !pass){ toast('Completa nombre, usuario y contraseña'); return; }
+  if(allAccounts().some(a=>a.user.toLowerCase()===user)){ toast('Ese usuario ya existe, elige otro'); return; }
+  const data = {label, user, pass, role, title:ROLE_TITLES[role]||'', createdAt:Date.now()};
+  db.collection('users').add(data)
+    .then(()=>{ toast('Usuario creado'); closeOverlay('overlay-user-new'); })
+    .catch(err=>toast('Error al guardar: '+err.message));
+}
+function confirmDeleteUser(id){
+  const u = state.users.find(x=>x.id===id);
+  if(!u) return;
+  openConfirm(
+    'Eliminar usuario',
+    `Se eliminará el acceso de "${u.label}" (usuario: ${u.user}). Esta acción no se puede deshacer.`,
+    'Eliminar',
+    ()=>doDeleteUser(id)
+  );
+}
+function doDeleteUser(id){
+  db.collection('users').doc(id).delete()
+    .then(()=>toast('Usuario eliminado'))
+    .catch(err=>toast('Error al borrar: '+err.message));
 }
 
 
