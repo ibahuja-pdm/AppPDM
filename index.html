@@ -44,6 +44,9 @@
     font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',sans-serif; overscroll-behavior:none; overflow:hidden;}
   #app{max-width:480px; margin:0 auto; height:100vh; height:100dvh; display:flex; flex-direction:column; position:relative; overflow:hidden;
     transform-origin:top center;}
+  /* En móvil este wrapper es transparente al layout (display:contents); en escritorio
+     (ver media query al final) se convierte en la columna de contenido junto al sidebar. */
+  .app-content{display:contents;}
 
   main{flex:1; min-height:0; padding:0 20px 110px; overflow-y:auto; -webkit-overflow-scrolling:touch;}
   .screen{display:none;}
@@ -252,6 +255,59 @@ body.role-pdm .navbtn[data-screen="checklists"] {display:none;}
   .session-card button{padding:9px 14px; border-radius:10px; border:none; background:var(--card-2);
     color:var(--text); font-weight:700; font-size:13px; cursor:pointer;}
 
+  /* =======================================================
+     LAYOUT DE ESCRITORIO (≥861px, ver DESKTOP_BREAKPOINT en JS)
+     Convierte la app de "columna móvil centrada" a un layout de
+     escritorio con sidebar fija a la izquierda y listas en grid.
+     Todo lo de arriba sigue siendo el diseño móvil por defecto.
+     ======================================================= */
+  @media (min-width:861px){
+    html,body{overflow:auto;}
+    #app{max-width:none; width:100%; margin:0; flex-direction:row; overflow:hidden;}
+
+    .app-content{display:flex; flex-direction:column; flex:1; min-width:0; height:100%; overflow:hidden;}
+
+    main{padding:0 clamp(20px,3vw,56px) 40px;}
+    main > .screen{max-width:none; width:100%;}
+
+    .topbar{text-align:left; padding:32px clamp(20px,3vw,56px) 14px; box-sizing:border-box;}
+    .topbar h1{font-size:32px;}
+
+    nav.bottomnav{
+      position:static; order:-1; flex:0 0 220px; width:220px; max-width:220px; height:auto;
+      flex-direction:column; align-items:stretch; justify-content:flex-start;
+      padding:28px 12px; gap:4px;
+      border-top:none; border-right:1px solid var(--divider);
+      background:var(--bg); backdrop-filter:none;
+    }
+    .navbtn{flex:none; flex-direction:row; justify-content:flex-start; align-items:center; gap:12px;
+      width:100%; padding:12px 14px; border-radius:12px; font-size:14.5px;}
+    .navbtn svg{width:22px; height:22px;}
+    .navbtn.active{background:var(--card);}
+
+    .kpi-row{gap:14px;}
+    .kpi{padding:18px 10px;}
+
+    #inventario-list, #equipos-list, #ots-list, #checklist-log,
+    #urgent-list, #alert-list, #users-list, #recent-moves{
+      display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:12px;
+    }
+    #inventario-list .card, #equipos-list .card, #ots-list .card, #checklist-log .card,
+    #urgent-list .card, #alert-list .card, #users-list .card, #recent-moves .card{margin-bottom:0;}
+    #inventario-list .empty, #equipos-list .empty, #ots-list .empty, #checklist-log .empty,
+    #urgent-list .empty, #alert-list .empty{grid-column:1/-1;}
+
+    .overlay{align-items:center; justify-content:center; max-width:none; margin:0; padding:24px;}
+    .sheet{width:100%; max-width:640px; border-radius:22px; max-height:85vh;}
+    .field-row{grid-template-columns:repeat(auto-fit,minmax(180px,1fr));}
+
+    #login-screen{align-items:center;}
+    #login-screen .login-logo, #login-screen .login-title, #login-screen .login-sub,
+    #login-screen .login-error, #login-screen label.field, #login-screen button.btn{
+      width:100%; max-width:360px; margin-left:auto; margin-right:auto;
+    }
+  }
+
 </style>
 </head>
 <body>
@@ -272,6 +328,7 @@ body.role-pdm .navbtn[data-screen="checklists"] {display:none;}
 </div>
 
 <div id="app">
+  <div class="app-content">
   <div class="topbar"><h1 id="screen-title">Inicio</h1></div>
 
   <main>
@@ -402,6 +459,7 @@ body.role-pdm .navbtn[data-screen="checklists"] {display:none;}
       </div>
     </section>
   </main>
+  </div>
 
   <nav class="bottomnav">
     <button class="navbtn active" data-screen="inicio" onclick="goScreen('inicio')" title="Inicio">
@@ -2150,9 +2208,22 @@ function fitAppWidth(){
   if(!app) return;
   const nav = document.querySelector('nav.bottomnav');
   const TABLET_BREAKPOINT = 700;
+  // A partir de este ancho se usa el layout de escritorio (sidebar + grid),
+  // definido por la media query "min-width:861px" en el <style>. Debe
+  // coincidir con ese valor.
+  const DESKTOP_BREAKPOINT = 860;
   const w = window.innerWidth, h = window.innerHeight;
   const isPortrait = h >= w;
-  if(isPortrait && w > 480 && w <= TABLET_BREAKPOINT){
+  if(w > DESKTOP_BREAKPOINT){
+    // Escritorio (cualquier orientación): no se escala ni se fuerza ancho,
+    // el layout de escritorio en CSS toma el control.
+    app.style.width = '';
+    app.style.height = '';
+    app.style.transform = '';
+    app.style.maxWidth = '';
+    if(nav) nav.style.maxWidth = '';
+    document.documentElement.style.setProperty('--app-vh', '1vh');
+  } else if(isPortrait && w > 480 && w <= TABLET_BREAKPOINT){
     const scale = w / 480;
     const localH = h / scale;
     app.style.maxWidth = '';
