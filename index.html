@@ -306,8 +306,54 @@ body.role-pdm .navbtn[data-screen="checklists"] {display:none;}
     #login-screen .login-error, #login-screen label.field, #login-screen button.btn{
       width:100%; max-width:360px; margin-left:auto; margin-right:auto;
     }
+
+    #dash-grid-chillers, #dash-grid-compresores{grid-template-columns:repeat(5, minmax(180px,1fr));}
   }
 
+  /* ===== DASHBOARD (Chillers / Compresores, datos de Monday.com) ===== */
+  .dash-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(155px,1fr)); gap:12px; margin-bottom:20px;}
+  .dash-card{background:var(--card); border-radius:18px; padding:16px 14px 14px;
+    position:relative; overflow:hidden; text-align:center;}
+  .dash-card::before{content:''; position:absolute; top:0; left:0; bottom:0; width:4px; background:#30D158;}
+  .dash-card.dash-off::before  {background:var(--text-faint);}
+  .dash-card.dash-warn::before {background:#FFD60A;}
+  .dash-card.dash-alarm::before{background:#FF9F0A;}
+  .dash-card.dash-fail::before {background:#FF453A;}
+
+  .dash-card-header{display:flex; justify-content:space-between; align-items:flex-start;
+    text-align:left; margin-bottom:8px; gap:6px;}
+  .dash-card-title{font-size:14px; font-weight:700;}
+  .dash-card-sub{font-size:11px; color:var(--text-dim); margin-top:1px;}
+
+  .dash-badge{display:inline-flex; align-items:center; gap:4px; flex-shrink:0;
+    font-size:9px; font-weight:700; padding:3px 8px; border-radius:20px; white-space:nowrap;}
+  .dash-badge-operativo     {background:#1E2E22; color:#8FE3A0;}
+  .dash-badge-carga-parcial {background:#3A3420; color:#FFD180;}
+  .dash-badge-alarma-activa {background:#3A2C1A; color:#FFB870;}
+  .dash-badge-falla-critica {background:#3A2020; color:#FF8A80;}
+  .dash-badge-fuera-servicio{background:var(--card-2); color:var(--text-dim);}
+  .dash-badge-standby       {background:#1A2A3A; color:#8ECBFF;}
+
+  .dash-gauge-wrap{display:flex; justify-content:center; margin:4px 0 0;}
+  .dash-gauge-wrap svg{max-width:100%; height:auto;}
+  .dash-kpi{font-size:24px; font-weight:800; margin-top:-4px; margin-bottom:10px; letter-spacing:-0.5px;}
+  .dash-kpi.dash-kpi-off{color:var(--text-faint); font-size:19px;}
+
+  .dash-metrics{border-top:1px solid var(--divider); padding-top:10px;
+    display:flex; flex-direction:column; gap:6px; text-align:left;}
+  .dash-mrow{display:flex; justify-content:space-between; align-items:center;}
+  .dash-mlabel{font-size:10.5px; font-weight:600; color:var(--text-dim);}
+  .dash-mval{font-size:11.5px; font-weight:700;}
+  .dash-c-normal {color:#8FE3A0;}
+  .dash-c-warning{color:#FFD180;}
+  .dash-c-danger {color:#FF8A80;}
+  .dash-c-off    {color:var(--text-faint);}
+
+  .dash-loading{grid-column:1/-1; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; min-height:200px; gap:12px; color:var(--text-dim); font-size:13px; font-weight:600;}
+  .dash-spinner{width:32px; height:32px; border:3px solid var(--divider); border-top-color:var(--text);
+    border-radius:50%; animation:dashSpin .8s linear infinite;}
+  @keyframes dashSpin{to{transform:rotate(360deg);}}
 </style>
 </head>
 <body>
@@ -414,6 +460,25 @@ body.role-pdm .navbtn[data-screen="checklists"] {display:none;}
       <div id="checklist-log"></div>
     </section>
 
+    <!-- DASHBOARD (Chillers / Compresores) -->
+    <section class="screen" id="screen-dashboard">
+      <div class="sticky-head">
+        <div class="row-head">
+          <span class="label sm" id="dash-sync-label">Sincronizando…</span>
+        </div>
+        <div class="seg" style="margin:0 4px 16px;">
+          <button id="dash-tab-btn-chillers" class="on" onclick="dashSwitchTab('chillers')">❄️ Chillers</button>
+          <button id="dash-tab-btn-compresores" onclick="dashSwitchTab('compresores')">🔧 Compresores</button>
+        </div>
+      </div>
+      <div class="dash-grid" id="dash-grid-chillers">
+        <div class="dash-loading"><div class="dash-spinner"></div><span>Conectando con Monday.com…</span></div>
+      </div>
+      <div class="dash-grid" id="dash-grid-compresores" style="display:none;">
+        <div class="dash-loading"><div class="dash-spinner"></div><span>Conectando con Monday.com…</span></div>
+      </div>
+    </section>
+
     <!-- AJUSTES -->
     <section class="screen" id="screen-ajustes">
       <div class="row-head"><span class="label">Sesión</span></div>
@@ -477,6 +542,10 @@ body.role-pdm .navbtn[data-screen="checklists"] {display:none;}
     <button class="navbtn" data-screen="checklists" onclick="goScreen('checklists')" title="Checklist">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M8 8l2 2 3-3M8 14l2 2 3-3"/></svg>
       <span>Checklist</span>
+    </button>
+    <button class="navbtn" data-screen="dashboard" onclick="goScreen('dashboard')" title="Dashboard">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 15a8 8 0 1116 0"/><path d="M12 15l4-5"/><circle cx="12" cy="15" r="1.3" fill="currentColor" stroke="none"/></svg>
+      <span>Dashboard</span>
     </button>
     <button class="navbtn" data-screen="ajustes" onclick="goScreen('ajustes')" title="Ajustes">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
@@ -1087,7 +1156,7 @@ function fmtDateTime(ts){
    en respuesta a clics, no al cargar la página).
    ======================================================= */
 
-const TITLES = {inicio:'Inicio', inventario:'Inventario', equipos:'Equipos', ots:'Órdenes de trabajo', checklists:'Checklists', ajustes:'Ajustes'};
+const TITLES = {inicio:'Inicio', inventario:'Inventario', equipos:'Equipos', ots:'Órdenes de trabajo', checklists:'Checklists', dashboard:'Dashboard', ajustes:'Ajustes'};
 // Equipos ya no tiene botón propio en el menú inferior (se abre desde Ajustes),
 // así que al entrar ahí se resalta "Ajustes" en vez de dejar el menú sin selección.
 const NAV_TAB_FOR_SCREEN = {equipos:'ajustes'};
@@ -1102,6 +1171,7 @@ function goScreen(name){
   if(name==='equipos') renderEquipos();
   if(name==='ots') renderOTs();
   if(name==='checklists') renderChecklistLog();
+  if(name==='dashboard') dashRenderCachedOrLoading();
 }
 
 
@@ -2095,6 +2165,7 @@ function applySession(){
   setText('session-user', currentSession.label);
   setText('session-role', currentSession.title || currentSession.label);
   startFirestoreSync();
+  dashInit();
   renderInicio(); renderInventario(); renderEquipos(); renderOTs(); renderChecklistLog();
   if(location.hash === NEW_OT_HASH){
     history.replaceState(null, '', location.pathname + location.search);
@@ -2186,6 +2257,376 @@ function doDeleteUser(id){
   db.collection('users').doc(id).delete()
     .then(()=>toast('Usuario eliminado'))
     .catch(err=>toast('Error al borrar: '+err.message));
+}
+
+
+/* =======================================================
+   DASHBOARD.JS — Monitoreo en vivo de Chillers y Compresores
+   (datos desde Monday.com). Independiente de Firestore; se
+   inicia una sola vez al iniciar sesión (ver applySession) y
+   sigue actualizándose en segundo plano cada DASH_CONFIG.REFRESH_MS,
+   sin importar si la pestaña Dashboard está visible o no.
+   ======================================================= */
+
+const DASH_CONFIG = {
+  API_TOKEN:      'eyJhbGciOiJIUzI1NiJ9.eyJ0aWQiOjYyMzQyMjcyOSwiYWFpIjoxMSwidWlkIjoxMDA3NjU5OSwiaWFkIjoiMjAyNi0wMi0xOVQxNjoxMjo1Ni4wMDBaIiwicGVyIjoibWU6d3JpdGUiLCJhY3RpZCI6NDQ3Njg5MSwicmduIjoidXNlMSJ9.nY2MXM-x6fb95m2BvxmhUFVMHLxHrJpnl8ZNyjcFfVA',
+  BOARD_CHILLERS:    '18403987245',
+  BOARD_COMPRESORES: '18406608853',
+  REFRESH_MS:     60_000,
+  MAX_RETRIES:    3,
+  RETRY_DELAY_MS: 3_000,
+  CHILLER_NAMES:   ['CH001','CH002','CH003','CH004','CH005','CH006','CH007','CH008','CH009','CH010'],
+  COMPRESOR_NAMES: ['COMP001','COMP002','COMP003'],
+  COL_CH: {
+    CARGA:    'numeric_mm1h2wdq',
+    TEMP_OUT: 'numeric_mm1fssgs',
+    TEMP_IN:  'numeric_mm1ffh7p',
+    PRES_OUT: 'numeric_mm1fkdjh',
+    PRES_IN:  'numeric_mm1f4rmc',
+    STATUS:   'status',
+  },
+  COL_CP: {
+    STATUS:       'status',
+    TEMP_CARGA:    'numeric_mm1zfxhc',
+    TEMP_DESCARGA: 'numeric_mm1zwzac',
+    PRES_CARGA:    'numeric_mm1zvqry',
+    PRES_DESCARGA: 'numeric_mm1zmfy0',
+  }
+};
+
+const DASH_CHILLER_SUB = {
+  CH001:'Confort Oficinas', CH002:'Confort CR1/CR2', CH003:'Confort CR1/CR2',
+  CH004:'Proceso CR2',      CH005:'Proceso CR3',     CH006:'Confort CR3',
+  CH007:'Confort CR3',      CH008:'Confort CR4',     CH009:'Confort CR4',
+  CH010:'Proceso CR2'
+};
+const DASH_COMPRESOR_SUB = {
+  COMP001:'Compresor CR1',
+  COMP002:'Compresor CR3',
+  COMP003:'Compresor CR4'
+};
+
+let dashStarted = false;
+let dashActiveTab = 'chillers';
+let dashCache = { chillers: null, compresores: null };
+
+/* ── GAUGE (SVG) — los colores usan variables CSS del tema (var(--...))
+   para que la aguja, el eje y las etiquetas se vean bien tanto en modo
+   oscuro como claro. ── */
+const DASH_SVG_NS = 'http://www.w3.org/2000/svg';
+const DASH_G = { CX:115, CY:97, R_OUTER:78, R_INNER:52, R_NEEDLE:70 };
+
+function dashPt(val, r) {
+  const rad = (180 - (Math.min(val,100)/100)*180) * Math.PI/180;
+  return { x: DASH_G.CX + r*Math.cos(rad), y: DASH_G.CY - r*Math.sin(rad) };
+}
+function dashSvgEl(tag, attrs) {
+  const el = document.createElementNS(DASH_SVG_NS, tag);
+  for (const [k,v] of Object.entries(attrs)) el.setAttribute(k,v);
+  return el;
+}
+function dashBuildGauge(svg, gradId, unit='%') {
+  const { CX, CY, R_OUTER, R_INNER } = DASH_G;
+  const defs = document.createElementNS(DASH_SVG_NS,'defs');
+  const grad = dashSvgEl('linearGradient',{ id:gradId, x1:'0%', y1:'0%', x2:'100%', y2:'0%' });
+  [{ o:'0%', c:'#00A859' },{ o:'55%', c:'#FFB800' },{ o:'100%', c:'#D93025' }].forEach(s =>
+    grad.appendChild(dashSvgEl('stop',{ offset:s.o, 'stop-color':s.c }))
+  );
+  defs.appendChild(grad); svg.appendChild(defs);
+  const o1=dashPt(0,R_OUTER), o2=dashPt(100,R_OUTER), i1=dashPt(0,R_INNER), i2=dashPt(100,R_INNER);
+  const arcD = `M ${o1.x} ${o1.y} A ${R_OUTER} ${R_OUTER} 0 0 1 ${o2.x} ${o2.y} L ${i2.x} ${i2.y} A ${R_INNER} ${R_INNER} 0 0 0 ${i1.x} ${i1.y} Z`;
+  const track = dashSvgEl('path',{ d:arcD, 'stroke-width':'1' });
+  track.setAttribute('fill','var(--card-2)'); track.setAttribute('stroke','var(--divider)');
+  svg.appendChild(track);
+  svg.appendChild(dashSvgEl('path',{ d:arcD, fill:`url(#${gradId})`, opacity:'0.85' }));
+  [0,25,50,75,100].forEach(v => {
+    const p1=dashPt(v,R_OUTER+2), p2=dashPt(v,R_OUTER+8), pl=dashPt(v,R_OUTER+16);
+    const tick = dashSvgEl('line',{ x1:p1.x,y1:p1.y,x2:p2.x,y2:p2.y,'stroke-width':'1.5' });
+    tick.setAttribute('stroke','var(--text-faint)');
+    svg.appendChild(tick);
+    const lbl = dashSvgEl('text',{ x:pl.x,y:pl.y+4,'text-anchor':'middle','font-size':'8','font-weight':'600' });
+    lbl.setAttribute('fill','var(--text-dim)');
+    lbl.textContent = v+unit; svg.appendChild(lbl);
+  });
+  const needle = dashSvgEl('line',{ x1:CX,y1:CY,x2:CX-DASH_G.R_NEEDLE,y2:CY,'stroke-width':'2.5','stroke-linecap':'round' });
+  needle.setAttribute('stroke','var(--text)');
+  svg.appendChild(needle);
+  const hub = dashSvgEl('circle',{ cx:CX,cy:CY,r:'9','stroke-width':'2' });
+  hub.setAttribute('fill','var(--card)'); hub.setAttribute('stroke','var(--divider)');
+  svg.appendChild(hub);
+  svg.appendChild(dashSvgEl('circle',{ cx:CX,cy:CY,r:'4',fill:'#0A84FF' }));
+  return needle;
+}
+
+/* Aguja para % */
+function dashAnimateNeedle(needle, kpiEl, targetVal, delay=0) {
+  setTimeout(() => {
+    const start = performance.now();
+    function frame(now) {
+      const t = Math.min((now-start)/1200, 1);
+      const ease = 1 - Math.pow(1-t, 3);
+      const cur = ease * targetVal;
+      const p = dashPt(cur, DASH_G.R_NEEDLE);
+      needle.setAttribute('x2', p.x); needle.setAttribute('y2', p.y);
+      if (kpiEl) {
+        kpiEl.textContent = Math.round(cur) + ' %';
+        kpiEl.style.color = cur > 85 ? '#FF8A80' : cur > 65 ? '#FFD180' : '#8FE3A0';
+      }
+      if (t < 1) requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }, delay);
+}
+/* Aguja para temperatura (escala relativa a maxTemp) */
+function dashAnimateNeedleTemp(needle, kpiEl, targetTemp, maxTemp, delay=0) {
+  const targetPct = Math.min((targetTemp / maxTemp) * 100, 100);
+  setTimeout(() => {
+    const start = performance.now();
+    function frame(now) {
+      const t = Math.min((now-start)/1200, 1);
+      const ease = 1 - Math.pow(1-t, 3);
+      const curPct  = ease * targetPct;
+      const curTemp = Math.round(ease * targetTemp);
+      const p = dashPt(curPct, DASH_G.R_NEEDLE);
+      needle.setAttribute('x2', p.x); needle.setAttribute('y2', p.y);
+      if (kpiEl) {
+        kpiEl.textContent = curTemp + ' °F';
+        kpiEl.style.color = curPct > 80 ? '#FF8A80' : curPct > 55 ? '#FFD180' : '#8FE3A0';
+      }
+      if (t < 1) requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }, delay);
+}
+
+/* ── HELPERS ── */
+function dashParseStatus(raw='') {
+  const s = (raw||'').toLowerCase().trim();
+  if (s.includes('operativo'))     return 'operativo';
+  if (s.includes('carga parcial')) return 'carga-parcial';
+  if (s.includes('alarma'))        return 'alarma-activa';
+  if (s.includes('falla'))         return 'falla-critica';
+  if (s.includes('standby'))       return 'standby';
+  return 'fuera-servicio';
+}
+const DASH_EMPTY = '—';
+const DASH_STATUS_CARD = {
+  'operativo':'', 'carga-parcial':'dash-warn', 'alarma-activa':'dash-alarm',
+  'falla-critica':'dash-fail', 'fuera-servicio':'dash-off', 'standby':'dash-off'
+};
+const DASH_STATUS_BADGE = {
+  'operativo':'dash-badge-operativo', 'carga-parcial':'dash-badge-carga-parcial',
+  'alarma-activa':'dash-badge-alarma-activa', 'falla-critica':'dash-badge-falla-critica',
+  'fuera-servicio':'dash-badge-fuera-servicio', 'standby':'dash-badge-standby'
+};
+const DASH_STATUS_LABEL = {
+  'operativo':'● Operativo', 'carga-parcial':'◐ Carga Parcial',
+  'alarma-activa':'⚠ Alarma Activa', 'falla-critica':'✕ Falla Crítica',
+  'fuera-servicio':'○ Fuera de Servicio', 'standby':'💤 Standby'
+};
+function dashColorClass(v) { return v > 80 ? 'dash-c-danger' : v > 50 ? 'dash-c-warning' : 'dash-c-normal'; }
+function dashTempClass(v)  { return v > 110 ? 'dash-c-danger' : 'dash-c-normal'; }
+function dashMr(label, val, cls='') {
+  return `<div class="dash-mrow"><span class="dash-mlabel">${label}</span><span class="dash-mval ${cls}">${val}</span></div>`;
+}
+
+/* ── RENDER TARJETAS ── */
+function dashRenderChillerCard(ch, delay=0) {
+  const off = ch.status === 'fuera-servicio' || ch.status === 'standby';
+  const card = document.createElement('div');
+  card.className = `dash-card ${DASH_STATUS_CARD[ch.status]||''}`.trim();
+  card.innerHTML = `
+    <div class="dash-card-header">
+      <div><div class="dash-card-title">${escapeHtml(ch.name)}</div><div class="dash-card-sub">${escapeHtml(ch.sub)}</div></div>
+      <span class="dash-badge ${DASH_STATUS_BADGE[ch.status]||'dash-badge-fuera-servicio'}">
+        ${DASH_STATUS_LABEL[ch.status]||'○ Fuera de Servicio'}
+      </span>
+    </div>
+    <div class="dash-gauge-wrap">
+      <svg id="dash-svg-ch-${ch.id}" width="230" height="110" viewBox="0 0 230 110"></svg>
+    </div>
+    <div class="dash-kpi ${off?'dash-kpi-off':''}" id="dash-kpi-ch-${ch.id}">${off ? DASH_EMPTY : '0 %'}</div>
+    <div class="dash-metrics">
+      ${dashMr('Carga',      off?DASH_EMPTY:ch.carga+' %',    off?'dash-c-off':dashColorClass(ch.carga))}
+      ${dashMr('T° Salida',  off?DASH_EMPTY:ch.tempOut+' °F', off?'dash-c-off':'dash-c-normal')}
+      ${dashMr('T° Entrada', off?DASH_EMPTY:ch.tempIn+' °F',  off?'dash-c-off':'dash-c-normal')}
+      ${dashMr('P. Salida',  off?DASH_EMPTY:ch.presOut+' psi',off?'dash-c-off':'dash-c-warning')}
+      ${dashMr('P. Entrada', off?DASH_EMPTY:ch.presIn+' psi', off?'dash-c-off':'dash-c-warning')}
+    </div>`;
+  document.getElementById('dash-grid-chillers').appendChild(card);
+  const needle = dashBuildGauge(document.getElementById(`dash-svg-ch-${ch.id}`), `dash-grad-ch-${ch.id}`, '%');
+  if (!off) dashAnimateNeedle(needle, document.getElementById(`dash-kpi-ch-${ch.id}`), ch.carga, delay);
+}
+function dashRenderCompresorCard(cp, delay=0) {
+  const off = cp.status === 'fuera-servicio' || cp.status === 'standby';
+  const MAX_TEMP = 150;
+  const card = document.createElement('div');
+  card.className = `dash-card ${DASH_STATUS_CARD[cp.status]||''}`.trim();
+  card.innerHTML = `
+    <div class="dash-card-header">
+      <div><div class="dash-card-title">${escapeHtml(cp.name)}</div><div class="dash-card-sub">${escapeHtml(cp.sub)}</div></div>
+      <span class="dash-badge ${DASH_STATUS_BADGE[cp.status]||'dash-badge-fuera-servicio'}">
+        ${DASH_STATUS_LABEL[cp.status]||'○ Fuera de Servicio'}
+      </span>
+    </div>
+    <div class="dash-gauge-wrap">
+      <svg id="dash-svg-cp-${cp.id}" width="230" height="110" viewBox="0 0 230 110"></svg>
+    </div>
+    <div class="dash-kpi ${off?'dash-kpi-off':''}" id="dash-kpi-cp-${cp.id}">${off ? DASH_EMPTY : '0 °F'}</div>
+    <div class="dash-metrics">
+      ${dashMr('T° Carga',    off?DASH_EMPTY:cp.tempCarga+' °F',    off?'dash-c-off':dashTempClass(cp.tempCarga))}
+      ${dashMr('T° Descarga', off?DASH_EMPTY:cp.tempDescarga+' °F', off?'dash-c-off':dashTempClass(cp.tempDescarga))}
+      ${dashMr('P. Carga',    off?DASH_EMPTY:cp.presCarga+' psi',   off?'dash-c-off':'dash-c-warning')}
+      ${dashMr('P. Descarga', off?DASH_EMPTY:cp.presDescarga+' psi',off?'dash-c-off':'dash-c-warning')}
+    </div>`;
+  document.getElementById('dash-grid-compresores').appendChild(card);
+  const needle = dashBuildGauge(document.getElementById(`dash-svg-cp-${cp.id}`), `dash-grad-cp-${cp.id}`, '°F');
+  if (!off) dashAnimateNeedleTemp(needle, document.getElementById(`dash-kpi-cp-${cp.id}`), cp.tempCarga, MAX_TEMP, delay);
+}
+
+/* ── API MONDAY.COM ── */
+async function dashFetchMondayAPI(query, attempt=1) {
+  try {
+    const res = await fetch('https://api.monday.com/v2', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'Authorization':DASH_CONFIG.API_TOKEN, 'API-Version':'2023-10' },
+      body: JSON.stringify({ query })
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+    const data = await res.json();
+    if (data.errors) throw new Error(data.errors.map(e=>e.message).join(', '));
+    if (!data.data)  throw new Error('Respuesta inesperada de la API.');
+    return data;
+  } catch (err) {
+    if (attempt < DASH_CONFIG.MAX_RETRIES) {
+      await new Promise(r => setTimeout(r, DASH_CONFIG.RETRY_DELAY_MS));
+      return dashFetchMondayAPI(query, attempt+1);
+    }
+    throw err;
+  }
+}
+async function dashFetchAllItemsFromBoard(boardId) {
+  const allItems = [];
+  let cursor = null;
+  do {
+    const cursorArg = cursor ? `, cursor: "${cursor}"` : '';
+    const query = `query {
+      boards(ids: ${boardId}) {
+        items_page(limit: 100${cursorArg}) {
+          cursor
+          items { id name created_at column_values { id text } }
+        }
+      }
+    }`;
+    const data = await dashFetchMondayAPI(query);
+    const page = data.data.boards[0].items_page;
+    allItems.push(...page.items);
+    cursor = page.cursor || null;
+  } while (cursor);
+  return allItems;
+}
+
+/* ── SUBPESTAÑAS Chillers / Compresores ── */
+function dashSwitchTab(tab) {
+  dashActiveTab = tab;
+  document.getElementById('dash-tab-btn-chillers').classList.toggle('on', tab==='chillers');
+  document.getElementById('dash-tab-btn-compresores').classList.toggle('on', tab==='compresores');
+  document.getElementById('dash-grid-chillers').style.display    = tab==='chillers' ? '' : 'none';
+  document.getElementById('dash-grid-compresores').style.display = tab==='compresores' ? '' : 'none';
+}
+
+/* Repinta al instante con los últimos datos ya obtenidos (si los hay) al
+   entrar a la pestaña Dashboard, sin esperar al siguiente ciclo. */
+function dashRenderCachedOrLoading() {
+  if (dashCache.chillers)    dashPaintChillers(dashCache.chillers);
+  if (dashCache.compresores) dashPaintCompresores(dashCache.compresores);
+}
+function dashPaintChillers(list) {
+  const grid = document.getElementById('dash-grid-chillers');
+  grid.innerHTML = '';
+  list.forEach((ch, i) => dashRenderChillerCard(ch, i * 80));
+}
+function dashPaintCompresores(list) {
+  const grid = document.getElementById('dash-grid-compresores');
+  grid.innerHTML = '';
+  list.forEach((cp, i) => dashRenderCompresorCard(cp, i * 80));
+}
+
+/* ── CICLO DE ACTUALIZACIÓN ── */
+async function dashRefresh() {
+  const statusEl = document.getElementById('dash-sync-label');
+  try {
+    const [chillerItems, compresorItems] = await Promise.all([
+      dashFetchAllItemsFromBoard(DASH_CONFIG.BOARD_CHILLERS),
+      dashFetchAllItemsFromBoard(DASH_CONFIG.BOARD_COMPRESORES)
+    ]);
+
+    const latestCH = new Map();
+    chillerItems.forEach(item => {
+      const name = item.name.trim().toUpperCase();
+      if (!DASH_CONFIG.CHILLER_NAMES.includes(name)) return;
+      if (!latestCH.has(name) || new Date(item.created_at) > new Date(latestCH.get(name).created_at))
+        latestCH.set(name, item);
+    });
+    const chillers = [];
+    DASH_CONFIG.CHILLER_NAMES.forEach((name, i) => {
+      const item = latestCH.get(name); if (!item) return;
+      const gv = id => parseFloat(item.column_values.find(c=>c.id===id)?.text?.replace(/[^\d.-]/g,'')) || 0;
+      chillers.push({
+        id: i, name, sub: DASH_CHILLER_SUB[name] || 'Equipo',
+        carga:   gv(DASH_CONFIG.COL_CH.CARGA),
+        tempOut: gv(DASH_CONFIG.COL_CH.TEMP_OUT),
+        tempIn:  gv(DASH_CONFIG.COL_CH.TEMP_IN),
+        presOut: gv(DASH_CONFIG.COL_CH.PRES_OUT),
+        presIn:  gv(DASH_CONFIG.COL_CH.PRES_IN),
+        status:  dashParseStatus(item.column_values.find(c=>c.id===DASH_CONFIG.COL_CH.STATUS)?.text)
+      });
+    });
+
+    const latestCP = new Map();
+    compresorItems.forEach(item => {
+      const name = item.name.trim().toUpperCase();
+      if (!DASH_CONFIG.COMPRESOR_NAMES.includes(name)) return;
+      if (!latestCP.has(name) || new Date(item.created_at) > new Date(latestCP.get(name).created_at))
+        latestCP.set(name, item);
+    });
+    const compresores = [];
+    DASH_CONFIG.COMPRESOR_NAMES.forEach((name, i) => {
+      const item = latestCP.get(name); if (!item) return;
+      const gv = id => parseFloat(item.column_values.find(c=>c.id===id)?.text?.replace(/[^\d.-]/g,'')) || 0;
+      compresores.push({
+        id: 'cp' + i, name, sub: DASH_COMPRESOR_SUB[name] || 'Equipo',
+        tempCarga:    gv(DASH_CONFIG.COL_CP.TEMP_CARGA),
+        tempDescarga: gv(DASH_CONFIG.COL_CP.TEMP_DESCARGA),
+        presCarga:    gv(DASH_CONFIG.COL_CP.PRES_CARGA),
+        presDescarga: gv(DASH_CONFIG.COL_CP.PRES_DESCARGA),
+        status:       dashParseStatus(item.column_values.find(c=>c.id===DASH_CONFIG.COL_CP.STATUS)?.text)
+      });
+    });
+
+    dashCache.chillers = chillers;
+    dashCache.compresores = compresores;
+    dashPaintChillers(chillers);
+    dashPaintCompresores(compresores);
+
+    const now = new Date();
+    const pad = n => String(n).padStart(2,'0');
+    if (statusEl) statusEl.textContent = `Actualizado ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  } catch (err) {
+    console.error(err);
+    if (statusEl) statusEl.textContent = 'Error de conexión con Monday.com';
+  }
+}
+
+/* Arranca el ciclo de datos una sola vez por sesión (ver applySession, justo
+   después de iniciar la sincronización de Firestore) y sigue en segundo
+   plano cada DASH_CONFIG.REFRESH_MS aunque el usuario no esté en la
+   pestaña Dashboard. */
+function dashInit() {
+  if (dashStarted) return;
+  dashStarted = true;
+  dashRefresh();
+  setInterval(dashRefresh, DASH_CONFIG.REFRESH_MS);
 }
 
 
