@@ -2810,6 +2810,45 @@ window.addEventListener('appinstalled', () => {
   if (banner) banner.classList.remove('show');
   localStorage.removeItem(INSTALL_DISMISS_KEY);
 });
+
+/* ── OCULTAR LA BARRA DE DIRECCIONES EN EL NAVEGADOR (no instalada) ──
+   Por seguridad, ningún navegador permite ocultar su barra de
+   direcciones sin que el usuario haga algo primero (no se puede
+   forzar apenas carga la página). La forma de lograrlo es pedir
+   pantalla completa (Fullscreen API) en cuanto el usuario toca la
+   pantalla por primera vez: eso oculta la barra de direcciones y,
+   en Android, también la barra de estado. Si el usuario ya abrió la
+   app instalada (modo standalone), no hace falta nada de esto. */
+function tryEnterFullscreen() {
+  const el = document.documentElement;
+  const request = el.requestFullscreen || el.webkitRequestFullscreen ||
+    el.mozRequestFullScreen || el.msRequestFullscreen;
+  if (!request) return;
+  try {
+    const result = request.call(el);
+    if (result && result.catch) result.catch(() => {});
+  } catch (err) { /* algunos navegadores/casos lo rechazan; se ignora */ }
+}
+
+function isFullscreenActive() {
+  return !!(document.fullscreenElement || document.webkitFullscreenElement ||
+    document.mozFullScreenElement || document.msFullscreenElement);
+}
+
+if (!isRunningStandalone()) {
+  const armFullscreenOnNextTap = () => {
+    document.addEventListener('pointerdown', function onFirstTap() {
+      document.removeEventListener('pointerdown', onFirstTap);
+      tryEnterFullscreen();
+    }, { once: true });
+  };
+  armFullscreenOnNextTap();
+  // Si el usuario sale de pantalla completa (ej. gesto de "atrás"),
+  // se vuelve a armar para que el próximo toque la reactive.
+  document.addEventListener('fullscreenchange', () => {
+    if (!isFullscreenActive()) armFullscreenOnNextTap();
+  });
+}
 </script>
 </body>
 </html>
