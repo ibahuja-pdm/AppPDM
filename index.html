@@ -365,42 +365,9 @@ body.role-pdm .navbtn[data-screen="checklists"] {display:none;}
   .dash-spinner{width:32px; height:32px; border:3px solid var(--divider); border-top-color:var(--text);
     border-radius:50%; animation:dashSpin .8s linear infinite;}
   @keyframes dashSpin{to{transform:rotate(360deg);}}
-
-  /* ── BANNER DE INSTALACIÓN PWA ── */
-  .install-banner{position:fixed; left:0; right:0; bottom:0; max-width:480px; margin:0 auto;
-    z-index:90; padding:10px 10px calc(10px + env(safe-area-inset-bottom)); display:none;}
-  .install-banner.show{display:block; animation:slideUp .25s ease;}
-  .install-banner-card{display:flex; align-items:center; gap:12px; background:var(--card);
-    border-radius:18px; padding:12px 12px; box-shadow:0 10px 30px rgba(0,0,0,0.4);}
-  .install-banner-icon{width:44px; height:44px; border-radius:12px; flex-shrink:0; object-fit:cover;
-    background:var(--card-2);}
-  .install-banner-body{flex:1; min-width:0;}
-  .install-banner-title{font-size:14.5px; font-weight:700;}
-  .install-banner-sub{font-size:12px; color:var(--text-dim); margin-top:2px; line-height:1.3;}
-  .install-banner-actions{display:flex; align-items:center; gap:6px; flex-shrink:0;}
-  .install-banner-btn{background:var(--text); color:var(--on-accent); border:none; border-radius:14px;
-    padding:10px 16px; font-size:13px; font-weight:700; cursor:pointer; white-space:nowrap;}
-  .install-banner-close{width:30px; height:30px; border-radius:50%; border:none; background:var(--card-2);
-    color:var(--text-dim); font-size:13px; display:flex; align-items:center; justify-content:center;
-    cursor:pointer; flex-shrink:0;}
 </style>
 </head>
 <body>
-
-<!-- BANNER DE INSTALACIÓN PWA -->
-<div class="install-banner" id="install-banner">
-  <div class="install-banner-card">
-    <img src="icons/icon-192.png" alt="" class="install-banner-icon">
-    <div class="install-banner-body">
-      <div class="install-banner-title">Instalar PDM</div>
-      <div class="install-banner-sub">Añádela a tu pantalla de inicio para abrirla como app</div>
-    </div>
-    <div class="install-banner-actions">
-      <button class="install-banner-btn" onclick="installPWA()">Instalar</button>
-      <button class="install-banner-close" onclick="dismissInstallBanner()" aria-label="Cerrar">✕</button>
-    </div>
-  </div>
-</div>
 
 <!-- PANTALLA DE INICIO DE SESIÓN -->
 <div id="login-screen">
@@ -2755,98 +2722,6 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch((err) => {
       console.warn('No se pudo registrar el service worker:', err);
     });
-  });
-}
-
-/* ── PROMPT DE INSTALACIÓN PWA (Android/Chrome) ──
-   Chrome dispara "beforeinstallprompt" solo si ya se cumplen los
-   criterios de instalabilidad (manifest + service worker + HTTPS)
-   y sus propias heurísticas de "engagement" con el sitio, así que
-   puede no aparecer en la primerísima visita. Cuando aparece, lo
-   interceptamos para mostrar nuestro propio banner en vez del
-   mini-infobar nativo de Chrome. En iOS Safari este evento no
-   existe (Apple no lo soporta), así que ahí simplemente no se
-   muestra nada. */
-let deferredInstallPrompt = null;
-const INSTALL_DISMISS_KEY = 'pdm_install_dismissed_at';
-const INSTALL_DISMISS_DAYS = 7;
-
-function isRunningStandalone() {
-  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-}
-
-window.addEventListener('beforeinstallprompt', (e) => {
-  e.preventDefault();
-  if (isRunningStandalone()) return;
-
-  const dismissedAt = parseInt(localStorage.getItem(INSTALL_DISMISS_KEY) || '0', 10);
-  const elapsedMs = Date.now() - dismissedAt;
-  if (elapsedMs < INSTALL_DISMISS_DAYS * 24 * 60 * 60 * 1000) return;
-
-  deferredInstallPrompt = e;
-  const banner = document.getElementById('install-banner');
-  if (banner) banner.classList.add('show');
-});
-
-function installPWA() {
-  const banner = document.getElementById('install-banner');
-  if (banner) banner.classList.remove('show');
-  if (!deferredInstallPrompt) return;
-  deferredInstallPrompt.prompt();
-  deferredInstallPrompt.userChoice.finally(() => {
-    deferredInstallPrompt = null;
-  });
-}
-
-function dismissInstallBanner() {
-  const banner = document.getElementById('install-banner');
-  if (banner) banner.classList.remove('show');
-  localStorage.setItem(INSTALL_DISMISS_KEY, String(Date.now()));
-}
-
-window.addEventListener('appinstalled', () => {
-  deferredInstallPrompt = null;
-  const banner = document.getElementById('install-banner');
-  if (banner) banner.classList.remove('show');
-  localStorage.removeItem(INSTALL_DISMISS_KEY);
-});
-
-/* ── OCULTAR LA BARRA DE DIRECCIONES EN EL NAVEGADOR (no instalada) ──
-   Por seguridad, ningún navegador permite ocultar su barra de
-   direcciones sin que el usuario haga algo primero (no se puede
-   forzar apenas carga la página). La forma de lograrlo es pedir
-   pantalla completa (Fullscreen API) en cuanto el usuario toca la
-   pantalla por primera vez: eso oculta la barra de direcciones y,
-   en Android, también la barra de estado. Si el usuario ya abrió la
-   app instalada (modo standalone), no hace falta nada de esto. */
-function tryEnterFullscreen() {
-  const el = document.documentElement;
-  const request = el.requestFullscreen || el.webkitRequestFullscreen ||
-    el.mozRequestFullScreen || el.msRequestFullscreen;
-  if (!request) return;
-  try {
-    const result = request.call(el);
-    if (result && result.catch) result.catch(() => {});
-  } catch (err) { /* algunos navegadores/casos lo rechazan; se ignora */ }
-}
-
-function isFullscreenActive() {
-  return !!(document.fullscreenElement || document.webkitFullscreenElement ||
-    document.mozFullScreenElement || document.msFullscreenElement);
-}
-
-if (!isRunningStandalone()) {
-  const armFullscreenOnNextTap = () => {
-    document.addEventListener('pointerdown', function onFirstTap() {
-      document.removeEventListener('pointerdown', onFirstTap);
-      tryEnterFullscreen();
-    }, { once: true });
-  };
-  armFullscreenOnNextTap();
-  // Si el usuario sale de pantalla completa (ej. gesto de "atrás"),
-  // se vuelve a armar para que el próximo toque la reactive.
-  document.addEventListener('fullscreenchange', () => {
-    if (!isFullscreenActive()) armFullscreenOnNextTap();
   });
 }
 </script>
