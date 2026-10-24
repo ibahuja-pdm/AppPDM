@@ -110,6 +110,34 @@
   .badge.status-cerrada{background:#1E2E22; color:#8FE3A0;}
   .chevron{flex-shrink:0; color:var(--chevron);}
 
+  /* Insignias en tema claro: los colores de arriba son para fondo oscuro y en
+     modo claro se veían como bloques cafés/negros con texto pastel ilegible. */
+  html[data-theme="light"] .badge.priority-alta,
+  html[data-theme="light"] .badge.eq-falla{background:#FFE5E3; color:#C62828;}
+  html[data-theme="light"] .badge.priority-media,
+  html[data-theme="light"] .badge.eq-detenido{background:#FFF3D6; color:#8A5A00;}
+  html[data-theme="light"] .badge.status-abierta{background:#E5E5EA; color:#1C1C1E;}
+  html[data-theme="light"] .badge.status-proceso{background:#DDEEFF; color:#0B5CAD;}
+  html[data-theme="light"] .badge.status-cerrada{background:#DDF4E2; color:#1B7A35;}
+  html[data-theme="light"] .cl-btn.sel-ok.on{background:#DDF4E2; color:#1B7A35;}
+  html[data-theme="light"] .cl-btn.sel-fail.on{background:#FFE5E3; color:#C62828;}
+  html[data-theme="light"] .cl-btn.sel-na.on{background:#D8D8DC; color:#1C1C1E;}
+  html[data-theme="light"] .confirm-icon{background:#FFE5E3; color:#C62828;}
+
+  .card-overdue{box-shadow:inset 3px 0 0 #FF453A;}
+  .stock-bar{height:4px; border-radius:2px; background:var(--card-2); margin-top:8px; overflow:hidden;}
+  .stock-bar > div{height:100%; background:#30D158; border-radius:2px;}
+
+  .net-banner{position:fixed; top:calc(8px + env(safe-area-inset-top)); left:50%; transform:translateX(-50%) translateY(-60px);
+    background:#3A3420; color:#FFD180; padding:8px 14px; border-radius:20px; font-size:12.5px; font-weight:700;
+    z-index:300; transition:transform .25s ease; pointer-events:none; white-space:nowrap; max-width:calc(100vw - 32px);
+    overflow:hidden; text-overflow:ellipsis;}
+  .net-banner.show{transform:translateX(-50%) translateY(0);}
+  html[data-theme="light"] .net-banner{background:#FFF3D6; color:#8A5A00;}
+
+  :focus-visible{outline:2px solid #0A84FF; outline-offset:2px;}
+  .searchbar input[type=search]::-webkit-search-cancel-button{filter:grayscale(1);}
+
   .empty{text-align:center; padding:50px 20px; color:var(--text-faint);}
   .empty .t{font-size:19px; font-weight:700; color:var(--text-dim); margin-bottom:6px;}
 
@@ -369,6 +397,8 @@ body.role-pdm .navbtn[data-screen="checklists"] {display:none;}
 </head>
 <body>
 
+<div class="net-banner" id="net-banner" role="status">Sin conexión · se sincroniza al volver</div>
+
 <!-- PANTALLA DE INICIO DE SESIÓN -->
 <div id="login-screen">
   <div class="login-logo">
@@ -461,6 +491,10 @@ body.role-pdm .navbtn[data-screen="checklists"] {display:none;}
             <button class="pill-btn-ghost" onclick="exportOTs()">Exportar</button>
             <button class="pill-btn user-only pdm-only" onclick="openAddOT()">+ Nueva OT</button>
           </div>
+        </div>
+        <div class="searchbar">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#9A9AA1" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input id="ot-search" type="search" placeholder="Buscar por equipo, falla, técnico..." oninput="renderOTs()">
         </div>
         <div class="chip-row" id="ot-chips"></div>
       </div>
@@ -703,6 +737,7 @@ body.role-pdm .navbtn[data-screen="checklists"] {display:none;}
         </label>
         <label class="field"><span>Asignado a</span><select id="ot-assigned"></select></label>
       </div>
+      <label class="field"><span>Fecha límite (opcional)</span><input type="date" id="ot-due"></label>
       <label class="field"><span>Notas</span><textarea id="ot-notes" rows="2" placeholder="Opcional"></textarea></label>
       <button class="btn btn-primary" id="ot-save-btn" onclick="saveOT()">Crear OT</button>
     </div>
@@ -783,6 +818,7 @@ body.role-pdm .navbtn[data-screen="checklists"] {display:none;}
         <label class="field" style="margin-top:8px;"><span>Notas de cierre</span><textarea id="otd-notes" rows="2"></textarea></label>
         <div id="otd-edit-actions">
           <button class="btn btn-primary" onclick="closeOT()">Cerrar OT</button>
+          <button class="btn btn-ghost" onclick="saveOTProgress()">Guardar avance</button>
         </div>
       </div>
     </div>
@@ -1146,19 +1182,45 @@ function valTrim(id){ return document.getElementById(id).value.trim(); }
 function setVal(id, v){ document.getElementById(id).value = v; }
 function setText(id, v){ document.getElementById(id).textContent = v; }
 
+/* Antes cada toast programaba su propio setTimeout, así que si salían dos
+   seguidos el primero apagaba al segundo antes de tiempo. Ahora se reinicia
+   el temporizador y los mensajes largos (errores) se quedan más tiempo. */
+let _toastTimer = null;
 function toast(msg){
   const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
-  setTimeout(()=>t.classList.remove('show'), 1800);
+  clearTimeout(_toastTimer);
+  const ms = Math.min(5000, Math.max(2200, String(msg).length * 55));
+  _toastTimer = setTimeout(()=>t.classList.remove('show'), ms);
 }
 
 function equipoById(id){ return state.equipos.find(e=>e.id===id); }
 
+/* Minúsculas seguras para búsquedas: no truena si el campo no existe
+   (documentos viejos o editados a mano en Firestore). */
+function lc(v){ return String(v==null ? '' : v).toLowerCase(); }
+
+function todayISO(){
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function isOTOverdue(o){ return !!(o && o.status!=='Cerrada' && o.due && o.due < todayISO()); }
+function fmtDue(iso){
+  if(!iso) return '';
+  const [y,m,d] = iso.split('-').map(Number);
+  if(!y || !m || !d) return iso;
+  const opts = {day:'2-digit',month:'short'};
+  if(y !== new Date().getFullYear()) opts.year = 'numeric';
+  return new Date(y, m-1, d).toLocaleDateString('es-MX', opts);
+}
+
 function fmtDate(ts){
+  if(!ts) return '—';
   const d = new Date(ts);
   return d.toLocaleDateString('es-MX',{day:'2-digit',month:'short'}) + ' · ' + d.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit',hour12:false});
 }
 
 function fmtDateTime(ts){
+  if(!ts) return '—';
   const d = new Date(ts);
   const dateStr = d.toLocaleDateString('es-MX', {day:'2-digit', month:'short', year:'numeric'});
   const timeStr = d.toLocaleTimeString('es-MX', {hour:'2-digit', minute:'2-digit', hour12:false});
@@ -1206,13 +1268,20 @@ function renderInicio(){
 
   const abiertas = state.ots.filter(o=>o.status!=='Cerrada');
   setText('kpi-ot-abiertas', abiertas.length);
-  const today = new Date().toISOString().slice(0,10);
-  const vencidas = abiertas.filter(o=>o.due && o.due < today);
+  // toISOString() da la fecha en UTC: después de las 6-7 pm en Nuevo Laredo ya
+  // marcaba "mañana" y contaba mal las vencidas. todayISO() usa la fecha local.
+  const vencidas = abiertas.filter(isOTOverdue);
   setText('kpi-ot-vencidas', vencidas.length);
+  document.getElementById('kpi-ot-vencidas').style.color = vencidas.length ? '#FF8A80' : '';
+  document.getElementById('kpi-stock-bajo').style.color = bajo.length ? '#FFD180' : '';
 
-  const urgent = abiertas.filter(o=>o.priority==='Alta').sort((a,b)=>(a.due||'9999').localeCompare(b.due||'9999'));
+  // Urgentes = prioridad Alta, equipo en Falla Crítica o ya vencidas.
+  // Primero las vencidas, luego por fecha límite y al final las más recientes.
+  const urgent = abiertas
+    .filter(o=>o.priority==='Alta' || o.equipoEstado==='Falla Crítica' || isOTOverdue(o))
+    .sort((a,b)=> (isOTOverdue(b)-isOTOverdue(a)) || (a.due||'9999').localeCompare(b.due||'9999') || ((b.created||0)-(a.created||0)));
   document.getElementById('urgent-list').innerHTML = urgent.length===0
-    ? `<div class="empty"><div class="t">Sin OTs urgentes</div>No hay órdenes de prioridad alta pendientes</div>`
+    ? `<div class="empty"><div class="t">Sin OTs urgentes</div>No hay órdenes de prioridad alta, vencidas o con falla crítica</div>`
     : urgent.slice(0,3).map(otCardHTML).join('');
 
   document.getElementById('alert-list').innerHTML = bajo.length===0
@@ -1244,19 +1313,28 @@ function itemCardHTML(item){
   return `<div class="card" onclick="openItemDetail('${item.id}')">
     <div class="icon">${icon}</div>
     <div class="body">
-      <div class="title">${escapeHtml(item.name)}${low ? '<span class="badge">BAJO</span>' : ''}</div>
-      <div class="desc">${escapeHtml(item.category)} · ${item.qty} ${escapeHtml(item.unit)} en stock · ${escapeHtml(item.sku||'sin SKU')}</div>
+      <div class="title">${escapeHtml(item.name)}${low ? '<span class="badge priority-media">BAJO</span>' : ''}</div>
+      <div class="desc">${escapeHtml(item.category)} · ${escapeHtml(item.qty)} ${escapeHtml(item.unit)} en stock · ${escapeHtml(item.sku||'sin SKU')}</div>
+      ${stockBarHTML(item)}
     </div>
     ${CHEVRON}
   </div>`;
 }
+// Barra de nivel de stock (actual vs máximo); se pinta amarilla en stock bajo.
+function stockBarHTML(item){
+  const max = Number(item.max)||0, qty = Number(item.qty)||0;
+  if(max<=0) return '';
+  const pct = Math.max(0, Math.min(100, qty/max*100));
+  const low = qty <= (Number(item.min)||0);
+  return `<div class="stock-bar"><div style="width:${pct}%;${low?'background:#FFD60A;':''}"></div></div>`;
+}
 function renderInventario(){
   renderCatChips();
-  const q = (val('search-input')||'').toLowerCase();
+  const q = lc(val('search-input')).trim();
   let list = state.items.filter(i=>
     (activeCat==='Todos' || i.category===activeCat) &&
-    (i.name.toLowerCase().includes(q) || (i.sku||'').toLowerCase().includes(q))
-  );
+    (lc(i.name).includes(q) || lc(i.sku).includes(q))
+  ).sort((a,b)=>lc(a.name).localeCompare(lc(b.name),'es'));
   document.getElementById('inventario-list').innerHTML = list.length===0
     ? `<div class="empty"><div class="t">Sin resultados</div>Ajusta la búsqueda o el filtro</div>`
     : list.map(itemCardHTML).join('');
@@ -1271,8 +1349,8 @@ function movesHTML(moves){
     const inner = m.type==='in' ? '<path d="M12 19V5M5 12l7-7 7 7"/>' : '<path d="M12 5v14M5 12l7 7 7-7"/>';
     return `<div class="card" style="cursor:default;">
       <div class="icon">${svgIcon(inner)}</div>
-      <div class="body"><div class="title" style="font-size:15px;">${escapeHtml(name)}</div><div class="desc">${fmtDate(m.date)}${m.note?' · '+escapeHtml(m.note):''}</div></div>
-      <div style="font-weight:700;">${m.type==='in'?'+':'-'}${m.qty}</div>
+      <div class="body"><div class="title" style="font-size:15px;">${escapeHtml(name)}</div><div class="desc">${fmtDate(m.date)}${m.by?' · '+escapeHtml(m.by):''}${m.note?' · '+escapeHtml(m.note):''}</div></div>
+      <div style="font-weight:700; color:${m.type==='in'?'#8FE3A0':'#FF8A80'};">${m.type==='in'?'+':'-'}${escapeHtml(m.qty)}</div>
     </div>`;
   }).join('');
 }
@@ -1346,6 +1424,9 @@ function saveItem(){
   if(!dbReady()) return;
   const name = valTrim('f-name');
   if(!name){ toast('Escribe un nombre para el artículo'); return; }
+  const fMin = Number(val('f-min'))||0, fMax = Number(val('f-max'))||1;
+  if(Number(val('f-qty')) < 0){ toast('El stock actual no puede ser negativo'); return; }
+  if(fMin > fMax){ toast('El stock mínimo no puede ser mayor que el máximo'); return; }
   const id = val('f-id') || uid();
   const data = {
     name,
@@ -1396,11 +1477,20 @@ function registerMove(){
   const qty = Number(val('move-qty'));
   if(!qty || qty<=0){ toast('Ingresa una cantidad válida'); return; }
   if(currentMoveType==='out' && qty > item.qty){ toast('No hay suficiente stock disponible'); return; }
-  const newQty = item.qty + (currentMoveType==='in' ? qty : -qty);
   const note = valTrim('move-note');
-  db.collection('items').doc(id).update({qty:newQty})
-    .then(()=>db.collection('moves').add({itemId:id, type:currentMoveType, qty, note, date:Date.now()}))
-    .then(()=>toast(currentMoveType==='in' ? 'Entrada registrada' : 'Salida registrada'))
+  const type = currentMoveType;
+  // Antes se escribía qty = (stock leído en este celular ± cantidad). Si dos
+  // técnicos sacaban material casi al mismo tiempo, el segundo pisaba al primero
+  // y el stock quedaba mal. Ahora se usa increment() (lo resuelve el servidor)
+  // y el artículo + el movimiento se guardan juntos en un batch: o se guardan
+  // los dos o ninguno. Sigue funcionando sin conexión (se sincroniza después).
+  const delta = type==='in' ? qty : -qty;
+  const batch = db.batch();
+  batch.update(db.collection('items').doc(id), {qty: firebase.firestore.FieldValue.increment(delta)});
+  batch.set(db.collection('moves').doc(), {itemId:id, type, qty, note, date:Date.now(),
+    by: currentSession.label || currentSession.user || ''});
+  batch.commit()
+    .then(()=>toast(type==='in' ? 'Entrada registrada' : 'Salida registrada'))
     .catch(err=>toast('Error al guardar: '+err.message));
   closeOverlay('overlay-item-detail');
 }
@@ -1408,7 +1498,7 @@ function editFromDetail(){
   const id = val('move-item-id');
   const item = state.items.find(i=>i.id===id);
   closeOverlay('overlay-item-detail');
-  openEditItem(item);
+  if(item) openEditItem(item);
 }
 
 
@@ -1428,7 +1518,8 @@ function renderEqChips(){
 }
 function setEqCat(c){ activeEqCat=c; renderEqChips(); renderEquipos(); }
 function equipoCardHTML(e){
-  const openOTs = state.ots.filter(o=>o.status!=='Cerrada' && o.equipoId && o.equipoId.trim().toLowerCase()===e.tag.trim().toLowerCase()).length;
+  const tag = lc(e.tag).trim();
+  const openOTs = state.ots.filter(o=>o.status!=='Cerrada' && o.equipoId && lc(o.equipoId).trim()===tag).length;
   return `<div class="card" onclick="openEqDetail('${e.id}')">
     <div class="icon">${svgIcon(TYPE_ICONS[e.type]||TYPE_ICONS.Otro)}</div>
     <div class="body">
@@ -1440,11 +1531,11 @@ function equipoCardHTML(e){
 }
 function renderEquipos(){
   renderEqChips();
-  const q = (val('eq-search')||'').toLowerCase();
+  const q = lc(val('eq-search')).trim();
   let list = state.equipos.filter(e =>
     (activeEqCat==='Todos' || e.type===activeEqCat) &&
-    (e.tag.toLowerCase().includes(q) || e.loc.toLowerCase().includes(q) || e.name.toLowerCase().includes(q))
-  );
+    (lc(e.tag).includes(q) || lc(e.loc).includes(q) || lc(e.name).includes(q))
+  ).sort((a,b)=>lc(a.tag).localeCompare(lc(b.tag),'es',{numeric:true}));
   document.getElementById('equipos-list').innerHTML = list.length===0
     ? `<div class="empty"><div class="t">Sin resultados</div>Ajusta la búsqueda o el filtro</div>`
     : list.map(equipoCardHTML).join('');
@@ -1484,14 +1575,19 @@ function openEqDetail(id){
   const e = equipoById(id);
   if(!e) return;
   setText('eqd-tag', e.tag);
-  setText('eqd-meta', `${e.name} · ${e.loc} · Tipo ${e.type}`);
-  const hist = state.ots.filter(o=>o.equipoId && o.equipoId.trim().toLowerCase()===e.tag.trim().toLowerCase()).sort((a,b)=>b.created-a.created);
+  setText('eqd-meta', `${e.name||'—'} · ${e.loc||'—'} · Tipo ${e.type||'—'}`);
+  const tag = lc(e.tag).trim();
+  const hist = state.ots.filter(o=>o.equipoId && lc(o.equipoId).trim()===tag).sort((a,b)=>(b.created||0)-(a.created||0));
   document.getElementById('eqd-ot-history').innerHTML = hist.length===0
     ? `<div class="empty"><div class="t">Sin historial</div>Este equipo aún no tiene órdenes de trabajo</div>`
     : hist.map(otCardHTML).join('');
   openOverlay('overlay-eq-detail');
 }
-function editEquipoFromDetail(){ closeOverlay('overlay-eq-detail'); editEquipo(equipoById(currentEqDetailId)); }
+function editEquipoFromDetail(){
+  const e = equipoById(currentEqDetailId);
+  closeOverlay('overlay-eq-detail');
+  if(e) editEquipo(e);
+}
 const EQ_TYPE_TO_MACHINERY = {UMA:'TUMA', TUMA:'TUMA', CH:'Chiller', BOMB:'Bombas'};
 function newOTforEquipo(){
   const e = equipoById(currentEqDetailId);
@@ -1511,7 +1607,9 @@ function newOTforEquipo(){
    ======================================================= */
 
 const OT_STATUSES_BY_ROLE = {
-  admin: ['Abierta','Proceso','Cerrada'],
+  // "Todas" ya existía como valor inicial del filtro, pero no estaba en la
+  // lista y se brincaba a "Abierta". Ahora el admin sí puede ver todo junto.
+  admin: ['Todas','Abierta','Proceso','Cerrada'],
   user: ['Abierta','Proceso'],
   pdm: ['Abierta']
 };
@@ -1531,27 +1629,36 @@ function renderOTChips(){
 function setOTFilter(s){ activeOTStatus=s; renderOTChips(); renderOTs(); }
 function otCardHTML(o){
   const icon = MACHINERY_ICONS[o.machinery] || TYPE_ICONS.Otro;
-  const meta = `${o.area||'—'} · ${o.machinery||'—'}${o.equipoId?' · '+o.equipoId:''}`;
-  return `<div class="card" onclick="openOTDetail('${o.id}')">
+  // Todo lo que viene de Firestore se escapa: antes título, estado, asignado y
+  // "creó" se metían tal cual al innerHTML (un "<" en el texto rompía la tarjeta).
+  const meta = `${escapeHtml(o.area||'—')} · ${escapeHtml(o.machinery||'—')}${o.equipoId?' · '+escapeHtml(o.equipoId):''}`;
+  const overdue = isOTOverdue(o);
+  const due = o.due ? ` · Vence: ${escapeHtml(fmtDue(o.due))}` : '';
+  return `<div class="card${overdue?' card-overdue':''}" onclick="openOTDetail('${o.id}')">
     <div class="icon">${svgIcon(icon)}</div>
     <div class="body">
-      <div class="title">${o.title}
-        <span class="badge status-${o.status==='Abierta'?'abierta':o.status==='Proceso'?'proceso':'cerrada'}">${o.status}</span>
+      <div class="title">${escapeHtml(o.title||'Sin título')}
+        <span class="badge status-${o.status==='Abierta'?'abierta':o.status==='Proceso'?'proceso':'cerrada'}">${escapeHtml(o.status||'—')}</span>
+        ${overdue?'<span class="badge priority-alta">VENCIDA</span>':''}
         ${o.priority==='Alta'?'<span class="badge priority-alta">ALTA</span>':o.priority==='Media'?'<span class="badge priority-media">MEDIA</span>':''}
         ${o.equipoEstado==='Falla Crítica'?'<span class="badge eq-falla">FALLA CRÍTICA</span>':o.equipoEstado==='Detenido'?'<span class="badge eq-detenido">DETENIDO</span>':''}
-        ${o.workType?`<span class="badge">${o.workType}</span>`:''}
+        ${o.workType?`<span class="badge">${escapeHtml(o.workType)}</span>`:''}
       </div>
-      <div class="desc">${meta} · ${o.assigned||'Sin asignar'} · ${fmtDateTime(o.created)}${o.tecnico?' · Técnico: '+escapeHtml(o.tecnico):''}${o.createdBy?' · Creó: '+o.createdBy:''}</div>
+      <div class="desc">${meta} · ${escapeHtml(o.assigned||'Sin asignar')} · ${fmtDateTime(o.created)}${due}${o.tecnico?' · Técnico: '+escapeHtml(o.tecnico):''}${o.createdBy?' · Creó: '+escapeHtml(o.createdBy):''}</div>
     </div>
     ${CHEVRON}
   </div>`;
 }
 function renderOTs(){
   renderOTChips();
-  let list = state.ots.filter(o => activeOTStatus==='Todas' || o.status===activeOTStatus);
-  list = list.slice().sort((a,b)=>b.created-a.created);
+  const q = lc(val('ot-search')).trim();
+  let list = state.ots.filter(o => (activeOTStatus==='Todas' || o.status===activeOTStatus) &&
+    (!q || [o.title, o.equipoId, o.area, o.machinery, o.assigned, o.tecnico, o.workType, o.notes, o.desc]
+      .some(f=>lc(f).includes(q))));
+  list = list.slice().sort((a,b)=>(b.created||0)-(a.created||0));
+  setText('ot-status-label', `${activeOTStatus} · ${list.length}`);
   document.getElementById('ots-list').innerHTML = list.length===0
-    ? `<div class="empty"><div class="t">Sin órdenes</div>No hay OTs con este filtro</div>`
+    ? `<div class="empty"><div class="t">Sin órdenes</div>${q?'Ninguna OT coincide con la búsqueda':'No hay OTs con este filtro'}</div>`
     : list.map(otCardHTML).join('');
 }
 function openAddOT(prefill){
@@ -1567,6 +1674,8 @@ function openAddOT(prefill){
   setVal('ot-equipo-estado', 'Operativo');
   setVal('ot-title', 'Falla mecánica');
   setVal('ot-priority', 'Media');
+  setVal('ot-due', '');
+  document.getElementById('ot-due').min = todayISO();
   setVal('ot-notes', '');
   openOverlay('overlay-ot');
 }
@@ -1583,6 +1692,8 @@ function openEditOT(o){
   setVal('ot-equipo-estado', o.equipoEstado || 'Operativo');
   setVal('ot-title', o.title || 'Falla mecánica');
   setVal('ot-priority', o.priority || 'Media');
+  setVal('ot-due', o.due || '');
+  document.getElementById('ot-due').min = '';
   setVal('ot-notes', o.notes || '');
   const createdInfo = document.getElementById('ot-created-by');
   if(o.createdBy){
@@ -1603,16 +1714,17 @@ function saveOT(){
   const machinery = val('ot-machinery');
   const equipoId = valTrim('ot-equipoid');
   const equipoEstado = val('ot-equipo-estado');
+  const due = val('ot-due') || '';
   let promise;
   if(id){
     promise = db.collection('ots').doc(id).update({workType, area, machinery, equipoId, equipoEstado, title, priority:val('ot-priority'),
-      assigned:valTrim('ot-assigned'),
+      assigned:valTrim('ot-assigned'), due,
       notes:valTrim('ot-notes')});
   } else {
     promise = db.collection('ots').doc(uid()).set({workType, area, machinery, equipoId, equipoEstado, title, priority:val('ot-priority'), status:'Abierta',
       assigned:valTrim('ot-assigned'), created:Date.now(),
       createdBy: currentSession.title || currentSession.label,
-      due:'', notes:valTrim('ot-notes'),
+      due, notes:valTrim('ot-notes'),
       desc:'', causa:'', horaInicio:'', horaFin:'', tecnico:''});
   }
   promise.then(()=>toast('OT guardada')).catch(err=>toast('Error al guardar: '+err.message));
@@ -1637,7 +1749,7 @@ function openOTDetail(id){
   if(!o) return;
   const meta = `${o.area||'—'} · ${o.machinery||'—'}${o.equipoId?' · '+o.equipoId:''}${o.equipoEstado?' · Equipo: '+o.equipoEstado:''}`;
   setText('otd-title', o.title);
-  setText('otd-meta', `${meta} · ${o.workType||''} · Prioridad ${o.priority} · ${o.assigned||'Sin asignar'}${o.createdBy?' · Creó: '+o.createdBy:''}`);
+  setText('otd-meta', `${meta} · ${o.workType||''} · Prioridad ${o.priority||'—'} · ${o.assigned||'Sin asignar'}${o.due?' · Vence: '+fmtDue(o.due)+(isOTOverdue(o)?' (VENCIDA)':''):''}${o.createdBy?' · Creó: '+o.createdBy:''}`);
   otHighlightStatusSeg(o.status);
   setVal('otd-desc', o.desc||'');
   setVal('otd-causa', o.causa||'');
@@ -1716,6 +1828,20 @@ function closeOT(){
     'Cerrar OT',
     ()=>doCloseOT(o, fields.data)
   );
+}
+/* Antes, lo que el técnico escribía (descripción, causa, horas, notas) solo se
+   guardaba al CERRAR la OT: si cerraba la hoja con la ✕ o se le apagaba el
+   celular a medio trabajo, se perdía. "Guardar avance" lo guarda sin cerrarla. */
+function saveOTProgress(){
+  if(!dbReady()) return;
+  const o = state.ots.find(x=>x.id===currentOTId);
+  if(!o || o.status==='Cerrada') return;
+  const fields = otGatherFieldsData();
+  if(!fields.ok) return;
+  Object.assign(o, fields.data);
+  db.collection('ots').doc(o.id).update(fields.data)
+    .then(()=>toast('Avance guardado'))
+    .catch(err=>toast('Error al guardar: '+err.message));
 }
 function doCloseOT(o, fieldsData){
   const data = {...fieldsData, status:'Cerrada'};
@@ -1833,6 +1959,7 @@ function lockChecklist(o){
 function saveChecklistDetail(){
   if(!dbReady()) return;
   const o = state.checklists.find(x=>x.id===currentChecklistId);
+  if(!o) return;
   if(o.locked){ toast('Este checklist ya está en el historial, no se puede editar'); return; }
   const err = chillerValidationError(o);
   if(err){ toast(err); return; }
@@ -1862,14 +1989,14 @@ function checklistLogCardHTML(o){
   return `<div class="card" onclick="openChecklistDetail('${o.id}')">
     <div class="icon">${svgIcon(MACHINERY_ICONS[o.machinery]||TYPE_ICONS.Otro)}</div>
     <div class="body">
-      <div class="title">${o.equipoId||o.machinery||'—'} ${fails>0?`<span class="badge priority-alta">${fails} falla${fails>1?'s':''}</span>`:''}</div>
-      <div class="desc">${o.area||'—'} · ${done}/${total} puntos revisados · ${fmtDateTime(o.created)}</div>
+      <div class="title">${escapeHtml(o.equipoId||o.machinery||'—')} ${fails>0?`<span class="badge priority-alta">${fails} falla${fails>1?'s':''}</span>`:''}${o.locked?'':'<span class="badge status-proceso">EN CAPTURA</span>'}</div>
+      <div class="desc">${escapeHtml(o.area||'—')} · ${done}/${total} puntos revisados · ${escapeHtml(o.assigned||'Sin asignar')} · ${fmtDateTime(o.created)}</div>
     </div>
     ${CHEVRON}
   </div>`;
 }
 function renderChecklistLog(){
-  const list = state.checklists.slice().sort((a,b)=>b.created-a.created);
+  const list = state.checklists.slice().sort((a,b)=>(b.created||0)-(a.created||0));
   document.getElementById('checklist-log').innerHTML = list.length===0
     ? `<div class="empty"><div class="t">Sin checklists</div>Crea un checklist desde el botón de arriba</div>`
     : list.map(checklistLogCardHTML).join('');
@@ -1882,13 +2009,13 @@ function clChecklistItemHTML(item, idx){
     const opts = ['', ...(item.options||[])].map(o=>
       `<option value="${escapeHtml(o)}" ${item.note===o?'selected':''}>${o===''?'Selecciona...':escapeHtml(o)}</option>`).join('');
     return `<div class="cl-item cl-item-full">
-      <div class="cl-label">${item.label}</div>
+      <div class="cl-label">${escapeHtml(item.label)}</div>
       <select class="cl-select" onchange="setClItemValue(${idx}, this.value)">${opts}</select>
     </div>`;
   }
   if(item.isText){
     return `<div class="cl-item cl-item-full">
-      <div class="cl-label">${item.label}</div>
+      <div class="cl-label">${escapeHtml(item.label)}</div>
       <textarea class="cl-textarea" rows="2" placeholder="Opcional" oninput="setClItemValue(${idx}, this.value)">${escapeHtml(item.note||'')}</textarea>
     </div>`;
   }
@@ -1896,17 +2023,17 @@ function clChecklistItemHTML(item, idx){
     const minAttr = item.min!=null ? ` min="${item.min}"` : '';
     const maxAttr = item.max!=null ? ` max="${item.max}"` : '';
     return `<div class="cl-item">
-      <div class="cl-label">${item.label}</div>
+      <div class="cl-label">${escapeHtml(item.label)}</div>
       <div class="cl-value">
         <input type="number" step="any" inputmode="decimal" class="cl-value-input" value="${escapeHtml(item.note||'')}" placeholder="0"${minAttr}${maxAttr} oninput="setClItemValue(${idx}, this.value, this)">
-        <span class="cl-unit">${item.unit||''}</span>
+        <span class="cl-unit">${escapeHtml(item.unit||'')}</span>
       </div>
     </div>`;
   }
   const okClass = item.invert ? 'sel-fail' : 'sel-ok';
   const failClass = item.invert ? 'sel-ok' : 'sel-fail';
   return `<div class="cl-item">
-    <div class="cl-label">${item.label}</div>
+    <div class="cl-label">${escapeHtml(item.label)}</div>
     <div class="cl-btns">
       <button class="cl-btn ${okClass} ${item.status==='ok'?'on':''}" onclick="setClItemStatus(${idx},'ok')">SI</button>
       <button class="cl-btn ${failClass} ${item.status==='fail'?'on':''}" onclick="setClItemStatus(${idx},'fail')">NO</button>
@@ -1918,16 +2045,16 @@ function clValueColHTML(item, idx){
   const minAttr = item.min!=null ? ` min="${item.min}"` : '';
   const maxAttr = item.max!=null ? ` max="${item.max}"` : '';
   return `<div class="cl-pair-col">
-    <div class="cl-label">${item.colLabel || item.label}</div>
+    <div class="cl-label">${escapeHtml(item.colLabel || item.label)}</div>
     <div class="cl-value">
       <input type="number" step="any" inputmode="decimal" class="cl-value-input" value="${escapeHtml(item.note||'')}" placeholder="0"${minAttr}${maxAttr} oninput="setClItemValue(${idx}, this.value, this)">
-      <span class="cl-unit">${item.unit||''}</span>
+      <span class="cl-unit">${escapeHtml(item.unit||'')}</span>
     </div>
   </div>`;
 }
 function clChecklistGroupHTML(items, idxs){
   const cols = items.map((it,k)=>clValueColHTML(it, idxs[k])).join('');
-  const title = items[0].groupTitle ? `<div class="cl-group-title">${items[0].groupTitle}</div>` : '';
+  const title = items[0].groupTitle ? `<div class="cl-group-title">${escapeHtml(items[0].groupTitle)}</div>` : '';
   return `${title}<div class="cl-item cl-item-pair">${cols}</div>`;
 }
 function renderChecklistDetailItems(){
@@ -1959,6 +2086,7 @@ function renderChecklistDetailItems(){
 function setClItemStatus(idx, val){
   if(!dbReady()) return;
   const o = state.checklists.find(x=>x.id===currentChecklistId);
+  if(!o) return;
   if(o.locked){ toast('Este checklist ya está en el historial, no se puede editar'); return; }
   o.checklist[idx].status = o.checklist[idx].status===val ? null : val;
   db.collection('checklists').doc(currentChecklistId).update({checklist:o.checklist})
@@ -1983,6 +2111,7 @@ function flushClValueDebounce(){
 function setClItemValue(idx, val, el){
   if(!dbReady()) return;
   const o = state.checklists.find(x=>x.id===currentChecklistId);
+  if(!o) return;
   if(o.locked){ toast('Este checklist ya está en el historial, no se puede editar'); return; }
   const item = o.checklist[idx];
   if((item.min!=null || item.max!=null) && val!==''){
@@ -2025,8 +2154,11 @@ function rowsToCSV(rows){
   const keys = Array.from(rows.reduce((set,r)=>{ Object.keys(r).forEach(k=>set.add(k)); return set; }, new Set()));
   const escCell = v=>{
     if(v==null) return '';
-    const s = typeof v==='object' ? JSON.stringify(v) : String(v);
-    return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+    let s = typeof v==='object' ? JSON.stringify(v) : String(v);
+    // Excel ejecuta como fórmula cualquier celda de texto que empiece con
+    // = + - @ (inyección CSV). Se antepone ' solo a textos, no a números.
+    if(typeof v==='string' && /^[=+\-@\t\r]/.test(s) && isNaN(Number(s))) s = "'"+s;
+    return /[",\n\r]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
   };
   const header = keys.map(escCell).join(',');
   const body = rows.map(r=>keys.map(k=>escCell(r[k])).join(',')).join('\n');
@@ -2037,12 +2169,19 @@ function downloadCSV(filename, rows){
   const blob = new Blob(['\ufeff'+rowsToCSV(rows)], {type:'text/csv;charset=utf-8;'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = filename; a.click();
-  URL.revokeObjectURL(url);
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  // Revocar en el mismo instante cancela la descarga en Safari/Firefox.
+  setTimeout(()=>URL.revokeObjectURL(url), 2000);
+}
+// La foto del artículo es un dataURL de decenas de KB: metida en el CSV lo
+// hacía pesadísimo e ilegible en Excel. Se exporta solo si tiene foto o no.
+function itemsForExport(){
+  return state.items.map(({image, ...rest})=>({...rest, foto: image ? 'sí' : 'no'}));
 }
 function exportData(){
   const datasets = [
-    {name:'inventario', rows:state.items},
+    {name:'inventario', rows:itemsForExport()},
     {name:'equipos', rows:state.equipos},
     {name:'ots', rows:state.ots},
     {name:'checklists', rows:state.checklists},
@@ -2119,11 +2258,17 @@ function confirmReset(){
 function doConfirmReset(){
   toast('Borrando datos...');
   const collections = ['items','equipos','ots','checklists','moves'];
+  // Un batch de Firestore acepta máximo 500 operaciones: con más documentos
+  // el borrado fallaba completo. Se parte en lotes de 400.
   Promise.all(collections.map(name =>
     db.collection(name).get().then(snap=>{
-      const batch = db.batch();
-      snap.docs.forEach(d=>batch.delete(d.ref));
-      return batch.commit();
+      const commits = [];
+      for(let i=0; i<snap.docs.length; i+=400){
+        const batch = db.batch();
+        snap.docs.slice(i, i+400).forEach(d=>batch.delete(d.ref));
+        commits.push(batch.commit());
+      }
+      return Promise.all(commits);
     })
   )).then(()=>location.reload())
     .catch(err=>toast('Error al borrar: '+err.message));
@@ -2131,11 +2276,14 @@ function doConfirmReset(){
 
 function setTheme(mode){
   document.documentElement.setAttribute('data-theme', mode);
-  localStorage.setItem(THEME_KEY, mode);
+  try{ localStorage.setItem(THEME_KEY, mode); }catch(_){}
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if(meta) meta.setAttribute('content', mode==='light' ? '#F2F2F7' : '#000000');
   document.querySelectorAll('#theme-seg button').forEach(b=>b.classList.toggle('on', b.dataset.v===mode));
 }
 function initTheme(){
-  const saved = localStorage.getItem(THEME_KEY) || 'dark';
+  let saved = 'dark';
+  try{ saved = localStorage.getItem(THEME_KEY) || 'dark'; }catch(_){}
   setTheme(saved);
 }
 
@@ -2195,8 +2343,11 @@ function applySession(){
   }
 }
 function initSession(){
-  const saved = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
-  if(!saved){ document.getElementById('login-screen').classList.remove('hidden'); return; }
+  // Un valor corrupto en localStorage hacía tronar el arranque completo
+  // (pantalla en blanco). Ahora simplemente se pide iniciar sesión.
+  let saved = null;
+  try{ saved = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); }catch(_){ saved = null; }
+  if(!saved || !saved.user || !saved.role){ document.getElementById('login-screen').classList.remove('hidden'); return; }
   const staticMatch = Object.values(USERS).find(cfg => cfg.user===saved.user && cfg.role===saved.role);
   if(staticMatch){
     currentSession = {...saved, title: saved.title || staticMatch.title};
@@ -2572,7 +2723,14 @@ function dashPaintCompresores(list) {
 }
 
 /* ── CICLO DE ACTUALIZACIÓN ── */
+let dashLastRefresh = 0;
+let dashInFlight = false;
 async function dashRefresh() {
+  // Con la app en segundo plano (celular bloqueado, otra pestaña) no tiene
+  // caso seguir consultando Monday.com cada minuto: gasta datos, batería y
+  // cuota de la API. Al volver a primer plano se refresca (ver dashInit).
+  if (document.hidden || !currentSession || dashInFlight) return;
+  dashInFlight = true;
   const statusEl = document.getElementById('dash-sync-label');
   try {
     const [chillerItems, compresorItems] = await Promise.all([
@@ -2625,15 +2783,29 @@ async function dashRefresh() {
 
     dashCache.chillers = chillers;
     dashCache.compresores = compresores;
-    dashPaintChillers(chillers);
-    dashPaintCompresores(compresores);
+    // Solo se repinta (y se re-animan las agujas) si el Dashboard está en
+    // pantalla; si no, queda en caché y goScreen('dashboard') lo pinta al entrar.
+    if (document.getElementById('screen-dashboard').classList.contains('active')) {
+      dashPaintChillers(chillers);
+      dashPaintCompresores(compresores);
+    }
+    dashLastRefresh = Date.now();
 
     const now = new Date();
     const pad = n => String(n).padStart(2,'0');
     if (statusEl) statusEl.textContent = `Actualizado ${pad(now.getHours())}:${pad(now.getMinutes())}`;
   } catch (err) {
     console.error(err);
-    if (statusEl) statusEl.textContent = 'Error de conexión con Monday.com';
+    if (statusEl) statusEl.textContent = dashCache.chillers
+      ? 'Sin conexión con Monday.com · mostrando últimos datos'
+      : 'Error de conexión con Monday.com';
+    if (!dashCache.chillers) {
+      const msg = '<div class="dash-loading"><span>No se pudo conectar con Monday.com</span><button class="pill-btn" onclick="dashRefresh()">Reintentar</button></div>';
+      document.getElementById('dash-grid-chillers').innerHTML = msg;
+      document.getElementById('dash-grid-compresores').innerHTML = msg;
+    }
+  } finally {
+    dashInFlight = false;
   }
 }
 
@@ -2646,6 +2818,9 @@ function dashInit() {
   dashStarted = true;
   dashRefresh();
   setInterval(dashRefresh, DASH_CONFIG.REFRESH_MS);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && Date.now() - dashLastRefresh > DASH_CONFIG.REFRESH_MS) dashRefresh();
+  });
 }
 
 
@@ -2710,6 +2885,35 @@ function fitAppWidth(){
 }
 window.addEventListener('resize', fitAppWidth);
 window.addEventListener('orientationchange', ()=>setTimeout(fitAppWidth, 50));
+
+/* Aviso de "sin conexión". Firestore guarda los cambios localmente y los sube
+   al reconectar, pero el técnico no tenía forma de saber que estaba offline. */
+function updateNetBanner(){
+  document.getElementById('net-banner').classList.toggle('show', navigator.onLine === false);
+}
+window.addEventListener('online', ()=>{ updateNetBanner(); toast('Conexión restablecida'); });
+window.addEventListener('offline', updateNetBanner);
+updateNetBanner();
+
+/* Cerrar hojas con Esc (escritorio) y tocando fuera (solo hojas de consulta,
+   para no perder lo escrito en un formulario por un toque accidental).
+   El detalle de checklist se excluye a propósito: cerrarlo lo BLOQUEA, así
+   que solo se cierra con su ✕ o "Guardar cambios". */
+const BACKDROP_CLOSABLE = ['overlay-eq-detail','overlay-users','overlay-export-checklists','overlay-ot-qr'];
+document.querySelectorAll('.overlay').forEach(ov=>{
+  ov.addEventListener('click', e=>{
+    if(e.target !== ov) return;
+    if(BACKDROP_CLOSABLE.includes(ov.id)) closeOverlay(ov.id);
+  });
+});
+document.addEventListener('keydown', e=>{
+  if(e.key !== 'Escape') return;
+  const open = Array.from(document.querySelectorAll('.overlay.open'));
+  if(open.length===0) return;
+  const top = open[open.length-1];
+  if(top.id==='overlay-confirm') closeConfirm();
+  else if(top.id!=='overlay-checklist-detail') closeOverlay(top.id);
+});
 
 initTheme();
 renderInicio();
