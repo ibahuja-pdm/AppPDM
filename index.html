@@ -15,9 +15,10 @@
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 
+<link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
   :root{
     --app-vh: 1vh;
@@ -1252,7 +1253,7 @@ function goScreen(name){
   if(name==='equipos') renderEquipos();
   if(name==='ots') renderOTs();
   if(name==='checklists') renderChecklistLog();
-  if(name==='dashboard') dashRenderCachedOrLoading();
+  if(name==='dashboard'){ const first=!dashStarted; dashInit(); dashRenderCachedOrLoading(); if(!first && Date.now()-dashLastRefresh > DASH_CONFIG.REFRESH_MS) dashRefresh(); }
 }
 
 
@@ -2229,7 +2230,22 @@ function exportChecklistsByMachinery(type){
 function newOTLink(){
   return location.origin + location.pathname + NEW_OT_HASH;
 }
-function openOTQRCode(){
+let _qrLibPromise = null;
+function loadQRLib(){
+  if(typeof QRCode !== 'undefined') return Promise.resolve();
+  if(!_qrLibPromise){
+    _qrLibPromise = new Promise((resolve, reject)=>{
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+      s.onload = resolve;
+      s.onerror = ()=>{ _qrLibPromise = null; reject(); };
+      document.head.appendChild(s);
+    });
+  }
+  return _qrLibPromise;
+}
+async function openOTQRCode(){
+  try{ await loadQRLib(); }catch(_){}
   const url = newOTLink();
   setVal('ot-qr-url', url);
   const box = document.getElementById('ot-qr-code');
@@ -2332,7 +2348,6 @@ function applySession(){
   setText('session-user', currentSession.label);
   setText('session-role', currentSession.title || currentSession.label);
   startFirestoreSync();
-  dashInit();
   renderInicio(); renderInventario(); renderEquipos(); renderOTs(); renderChecklistLog();
   if(location.hash === NEW_OT_HASH){
     history.replaceState(null, '', location.pathname + location.search);
@@ -2729,7 +2744,12 @@ async function dashRefresh() {
   // Con la app en segundo plano (celular bloqueado, otra pestaña) no tiene
   // caso seguir consultando Monday.com cada minuto: gasta datos, batería y
   // cuota de la API. Al volver a primer plano se refresca (ver dashInit).
+  // Solo consulta Monday.com mientras el Dashboard está en pantalla: antes se
+  // descargaban TODOS los registros de ambos tableros cada minuto desde que el
+  // usuario iniciaba sesión, aunque nunca abriera el Dashboard. Con datos
+  // móviles eso competía con Firestore y hacía lenta toda la app.
   if (document.hidden || !currentSession || dashInFlight) return;
+  if (!document.getElementById('screen-dashboard').classList.contains('active')) return;
   dashInFlight = true;
   const statusEl = document.getElementById('dash-sync-label');
   try {
@@ -2923,7 +2943,7 @@ fitAppWidth();
 // Registro del Service Worker (PWA)
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch((err) => {
+    navigator.serviceWorker.register('sw.js', {updateViaCache:'none'}).catch((err) => {
       console.warn('No se pudo registrar el service worker:', err);
     });
   });
